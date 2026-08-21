@@ -82,6 +82,36 @@ curl -N -X POST https://api.arcticlodge.nu/chat \
 `/health` visar vilka bindings och nycklar som är på plats — börja alltid
 felsökningen där.
 
+## Alternativ: deploya via Cloudflares Git-integration
+
+Kopplar du repot i Cloudflare byggs och deployas allt vid varje push till
+`main`. Tre separata projekt behövs — ett per Worker och ett för Pages:
+
+| Projekt | Typ | Root directory | Build watch path |
+|---|---|---|---|
+| `turistbot-api` | Worker | `workers/api` | `workers/api/*` |
+| `turistbot-tiles` | Worker | `workers/tile-proxy` | `workers/tile-proxy/*` |
+| `turistbot` | Pages | `frontend` | `frontend/*` |
+
+Workers använder standardkommandona (`npm install` + `npx wrangler deploy`).
+För Pages: build-kommando `npm run build`, output-katalog `dist`.
+
+Utan build watch paths bygger alla tre projekten om vid varje push, även
+när bara ett av dem ändrats. Kräver Build System V2 eller senare.
+
+**Git-integrationen ersätter inte steg 1 och 2.** Den deployar kod — den
+skapar inte D1, KV eller R2, och den kan inte se dina hemligheter:
+
+- Kör `./scripts/setup-cloudflare.sh` en gång först och **commita de
+  uppdaterade `wrangler.toml`** — annars pekar D1-bindningen på
+  platshållaren `DITT-D1-ID-HÄR` och första bygget failar.
+- Lägg in `ANTHROPIC_API_KEY` och `BRAVE_API_KEY` en gång via
+  `wrangler secret put` eller dashboarden. De ligger inte i repot.
+
+Schemat (`CREATE TABLE IF NOT EXISTS`) och seeden (`INSERT OR IGNORE`) är
+idempotenta och kan köras om utan dubbletter, om du hellre vill ha dem i
+build-kommandot än som ett engångssteg.
+
 ## Steg 4 — Domäner
 
 I Cloudflare-dashboarden, under Workers & Pages → respektive projekt →
