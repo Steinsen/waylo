@@ -12,13 +12,14 @@ const VERKTYGSTEXT = {
  * Chattwidget. `onPoi` anropas med de POI-id:n som nämnts i svaret,
  * så att kartan kan lyfta fram dem.
  */
-export default function Chat({ onPoi, kompakt = false }) {
+export default function Chat({ onPoi, onVisaKarta = null, kompakt = false }) {
   const [meddelanden, setMeddelanden] = useState([
     { role: 'assistant', content: config.valkomsttext },
   ]);
   const [input, setInput] = useState('');
   const [laddar, setLaddar] = useState(false);
   const [status, setStatus] = useState(null);
+  const [sistaPoi, setSistaPoi] = useState([]);
   const listaRef = useRef(null);
   const session = useRef(sessionId());
 
@@ -43,6 +44,7 @@ export default function Chat({ onPoi, kompakt = false }) {
     setInput('');
     setLaddar(true);
     setStatus(null);
+    setSistaPoi([]);
 
     try {
       await chatta(
@@ -62,6 +64,7 @@ export default function Chat({ onPoi, kompakt = false }) {
           } else if (h.typ === 'verktyg') {
             setStatus(VERKTYGSTEXT[h.namn] ?? 'Arbetar…');
           } else if (h.typ === 'poi') {
+            setSistaPoi(h.ids);
             onPoi?.(h.ids);
           } else if (h.typ === 'fel') {
             setMeddelanden((m) => {
@@ -103,6 +106,15 @@ export default function Chat({ onPoi, kompakt = false }) {
             {m.content || (laddar && i === meddelanden.length - 1 ? '…' : '')}
           </div>
         ))}
+        {onVisaKarta && !laddar && sistaPoi.length > 0 && (
+          <button
+            type="button"
+            className="waylo-kartknapp"
+            onClick={() => onVisaKarta(sistaPoi)}
+          >
+            📍 Visa {sistaPoi.length === 1 ? 'platsen' : 'platserna'} på kartan
+          </button>
+        )}
         {status && <div className="waylo-status">{status}</div>}
       </div>
 

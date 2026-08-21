@@ -22,7 +22,7 @@ function text(falt, sprak = 'sv') {
  * Leaflet-karta med Lantmäteriets topografiska tiles via tile-proxyn.
  * `markerade` är en lista med POI-id som ska lyftas fram (från chatten).
  */
-export default function Map({ config, poier = [], markerade = [] }) {
+export default function Map({ config, poier = [], markerade = [], synlig = true }) {
   const containerRef = useRef(null);
   const kartaRef = useRef(null);
   const lagerRef = useRef(null);
@@ -47,8 +47,8 @@ export default function Map({ config, poier = [], markerade = [] }) {
     L.marker([config.center.lat, config.center.lng], {
       icon: L.divIcon({
         className: 'waylo-markor waylo-markor--hem',
-        html: '<span>🏠</span>',
-        iconSize: [34, 34],
+        html: '<span class="waylo-markor__cirkel">🏠</span>',
+        iconSize: [44, 44],
       }),
     })
       .addTo(karta)
@@ -77,8 +77,8 @@ export default function Map({ config, poier = [], markerade = [] }) {
       const markor = L.marker([poi.lat, poi.lng], {
         icon: L.divIcon({
           className: 'waylo-markor',
-          html: `<span>${ikonFor(poi)}</span>`,
-          iconSize: [30, 30],
+          html: `<span class="waylo-markor__cirkel">${ikonFor(poi)}</span>`,
+          iconSize: [44, 44],
         }),
       }).bindPopup(`
         <strong>${text(poi.namn)}</strong><br/>
@@ -93,10 +93,23 @@ export default function Map({ config, poier = [], markerade = [] }) {
     }
   }, [poier]);
 
+  // Leaflet mäter containern vid skapandet. Byter man flik på mobil har
+  // den varit dold (0x0) och måste mätas om när den visas igen.
+  useEffect(() => {
+    if (!synlig || !kartaRef.current) return;
+    const id = setTimeout(() => kartaRef.current?.invalidateSize(), 0);
+    return () => clearTimeout(id);
+  }, [synlig]);
+
   // Zooma till de POI:er chatten just nämnt
   useEffect(() => {
     const karta = kartaRef.current;
-    if (!karta || !markerade.length) return;
+    if (!karta || !synlig || !markerade.length) return;
+
+    // Kommer vi hit direkt efter ett flikbyte har containern nyss varit
+    // dold — mät om innan vi räknar ut zoomnivån, annars beräknas den
+    // mot 0x0 och kartan hamnar fel.
+    karta.invalidateSize();
 
     const punkter = markerade
       .map((id) => markorerRef.current[id])
@@ -111,7 +124,7 @@ export default function Map({ config, poier = [], markerade = [] }) {
     } else {
       karta.fitBounds(L.latLngBounds(punkter).pad(0.25));
     }
-  }, [markerade]);
+  }, [markerade, synlig]);
 
   return <div className="waylo-karta" ref={containerRef} />;
 }
