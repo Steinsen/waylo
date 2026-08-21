@@ -1,0 +1,5 @@
+# Kopiera till .dev.vars för lokal utveckling (.dev.vars är gitignorerad).
+ANTHROPIC_API_KEY = "sk-ant-..."
+BRAVE_API_KEY = "..."
+# Släpp igenom Vites dev-server i CORS lokalt
+ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:4173"
