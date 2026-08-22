@@ -4,7 +4,7 @@ import config from '../config/arctic-lodge.js';
 
 const VERKTYGSTEXT = {
   search_poi_database: 'Söker i den lokala guiden…',
-  search_web: 'Söker på webben…',
+  web_search: 'Söker på webben…',
   get_weather: 'Hämtar vädret…',
 };
 
@@ -20,6 +20,7 @@ export default function Chat({ onPoi, onVisaKarta = null, kompakt = false }) {
   const [laddar, setLaddar] = useState(false);
   const [status, setStatus] = useState(null);
   const [sistaPoi, setSistaPoi] = useState([]);
+  const [kallor, setKallor] = useState([]);
   const listaRef = useRef(null);
   const session = useRef(sessionId());
 
@@ -45,6 +46,7 @@ export default function Chat({ onPoi, onVisaKarta = null, kompakt = false }) {
     setLaddar(true);
     setStatus(null);
     setSistaPoi([]);
+    setKallor([]);
 
     try {
       await chatta(
@@ -66,6 +68,8 @@ export default function Chat({ onPoi, onVisaKarta = null, kompakt = false }) {
           } else if (h.typ === 'poi') {
             setSistaPoi(h.ids);
             onPoi?.(h.ids);
+          } else if (h.typ === 'kallor') {
+            setKallor(h.kallor);
           } else if (h.typ === 'fel') {
             setMeddelanden((m) => {
               const kopia = [...m];
@@ -106,6 +110,16 @@ export default function Chat({ onPoi, onVisaKarta = null, kompakt = false }) {
             {m.content || (laddar && i === meddelanden.length - 1 ? '…' : '')}
           </div>
         ))}
+        {kallor.length > 0 && !laddar && (
+          <div className="waylo-kallor">
+            <span>Källor:</span>
+            {kallor.map((k) => (
+              <a key={k.url} href={k.url} target="_blank" rel="noopener noreferrer">
+                {k.titel}
+              </a>
+            ))}
+          </div>
+        )}
         {onVisaKarta && !laddar && sistaPoi.length > 0 && (
           <button
             type="button"

@@ -31,4 +31,3 @@ ALLOWED_ORIGINS = "https://arcticlodge.nu,https://www.arcticlodge.nu"
 
 # Hemligheter (sätts med `wrangler secret put`, ALDRIG här):
 #   ANTHROPIC_API_KEY
-#   BRAVE_API_KEY

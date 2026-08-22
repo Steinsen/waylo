@@ -18,7 +18,10 @@ export CLOUDFLARE_ACCOUNT_ID=...
 Du behöver också:
 
 - **ANTHROPIC_API_KEY** — console.anthropic.com
-- **BRAVE_API_KEY** — brave.com/search/api (fri nivå räcker till att börja)
+
+Det är den enda API-nyckeln som behövs. Webbsökningen är Claudes
+inbyggda server tool ($10 per 1 000 sökningar, debiteras på samma
+konto) och vädret kommer från yr.no som inte kräver nyckel.
 
 ## Steg 1 — Skapa resurser och seeda databasen
 
@@ -52,7 +55,6 @@ Aldrig i kod eller `wrangler.toml` — alltid som secrets:
 ```bash
 cd workers/api
 npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put BRAVE_API_KEY
 ```
 
 `LANTMATERIET_TOKEN` behövs först när den avgiftsfria tjänsten utgår
@@ -105,8 +107,8 @@ skapar inte D1, KV eller R2, och den kan inte se dina hemligheter:
 - Kör `./scripts/setup-cloudflare.sh` en gång först och **commita de
   uppdaterade `wrangler.toml`** — annars pekar D1-bindningen på
   platshållaren `DITT-D1-ID-HÄR` och första bygget failar.
-- Lägg in `ANTHROPIC_API_KEY` och `BRAVE_API_KEY` en gång via
-  `wrangler secret put` eller dashboarden. De ligger inte i repot.
+- Lägg in `ANTHROPIC_API_KEY` en gång via `wrangler secret put` eller
+  dashboarden. Den ligger inte i repot.
 
 Schemat (`CREATE TABLE IF NOT EXISTS`) och seeden (`INSERT OR IGNORE`) är
 idempotenta och kan köras om utan dubbletter, om du hellre vill ha dem i
@@ -180,4 +182,5 @@ Samma kodbas, ny config + ny databas.
 
 Allt ryms i Cloudflares gratisnivå vid normal trafik: Workers 100k
 requests/dygn, D1 5 GB, R2 10 GB, KV 100k läsningar/dygn. De rörliga
-kostnaderna är Claude API-anropen och Brave Search.
+kostnaderna är Claude API-anropen, inklusive webbsökningarna ($10 per
+1 000 sökningar).

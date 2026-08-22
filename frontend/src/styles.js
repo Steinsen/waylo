@@ -95,6 +95,14 @@ export const css = `
 .waylo-bubbla--assistant { align-self: flex-start; background: #f1f4f8; }
 .waylo-bubbla--user { align-self: flex-end; background: var(--waylo-accent); color: #fff; }
 .waylo-status { align-self: flex-start; color: var(--waylo-muted); font-size: .85rem; font-style: italic; }
+.waylo-kallor {
+  align-self: flex-start; display: flex; flex-wrap: wrap; gap: .35rem .6rem;
+  max-width: 100%; font-size: .78rem; color: var(--waylo-muted);
+}
+.waylo-kallor a {
+  color: var(--waylo-accent); text-decoration: underline;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 15rem;
+}
 .waylo-kartknapp {
   align-self: flex-start; min-height: 44px; padding: .5rem 1rem;
   box-sizing: border-box;

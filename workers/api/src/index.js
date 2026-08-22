@@ -54,7 +54,6 @@ async function route(request, env, url) {
       MEDIA: Boolean(env.MEDIA),
       CACHE: Boolean(env.CACHE),
       ANTHROPIC_API_KEY: Boolean(env.ANTHROPIC_API_KEY),
-      BRAVE_API_KEY: Boolean(env.BRAVE_API_KEY),
     };
     let db_ok = false;
     try {

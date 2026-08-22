@@ -1,14 +1,22 @@
 /**
  * Verktyg som Claude får anropa (tool use).
  *
- * - search_poi_database → lokal D1-databas
- * - search_web          → Brave Search (aktuell info, GDPR-ok)
- * - get_weather         → yr.no / api.met.no (gratis, ingen nyckel)
+ * - search_poi_database → lokal D1-databas (vi kör den)
+ * - get_weather         → yr.no / api.met.no (vi kör den, gratis, ingen nyckel)
+ * - web_search          → Anthropics server-side tool (de kör den)
+ *
+ * web_search är ett server tool: Claude utför sökningen på Anthropics
+ * sida och resultatet kommer tillbaka som content-block i samma svar.
+ * Den dyker aldrig upp som tool_use hos oss och passerar aldrig
+ * executeTool. Källhänvisningar följer alltid med och måste visas för
+ * gästen — se hanteringen av citations i chat.js.
  */
 
 import { sokPoi, sprakvarde } from './poi.js';
+import { sokplats } from './config.js';
 
-export const tools = [
+/** Verktyg vi kör själva. */
+const klientVerktyg = [
   {
     name: 'search_poi_database',
     description:
@@ -37,20 +45,6 @@ export const tools = [
     },
   },
   {
-    name: 'search_web',
-    description:
-      'Sök aktuell info på internet — öppettider, events, butiker, ' +
-      'transport, priser. Använd när frågan gäller något som kan ha ' +
-      'förändrats eller inte finns i den lokala databasen.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string' },
-      },
-      required: ['query'],
-    },
-  },
-  {
     name: 'get_weather',
     description:
       'Hämta aktuellt väder och prognos för området kring hotellet.',
@@ -58,13 +52,34 @@ export const tools = [
   },
 ];
 
+/**
+ * Hela verktygslistan för en instans — klientverktygen plus Anthropics
+ * web search, lokaliserad till instansens ort så att frågor som
+ * "närmaste apotek" ger träffar i rätt del av världen.
+ */
+export function byggTools(instans_id) {
+  const plats = sokplats(instans_id);
+  return [
+    ...klientVerktyg,
+    {
+      type: 'web_search_20260318',
+      name: 'web_search',
+      max_uses: 5,
+      ...(plats ? { user_location: plats } : {}),
+    },
+  ];
+}
+
+/** True för verktyg vi kör själva (server tools kör Anthropic). */
+export function arKlientVerktyg(namn) {
+  return klientVerktyg.some((t) => t.name === namn);
+}
+
 /** Kör ett verktyg. Returnerar alltid en sträng (tool_result-innehåll). */
 export async function executeTool(name, input, env, ctx) {
   switch (name) {
     case 'search_poi_database':
       return await sokDatabas(input, env, ctx);
-    case 'search_web':
-      return await sokWebb(input, env);
     case 'get_weather':
       return await hamtaVader(ctx.instans);
     default:
@@ -105,35 +120,6 @@ async function sokDatabas(input, env, ctx) {
       hojdpunkt_m: p.hojdpunkt_m,
     }))
   );
-}
-
-async function sokWebb(input, env) {
-  if (!env.BRAVE_API_KEY) {
-    return 'Webbsökning är inte konfigurerad. Hänvisa gästen till receptionen.';
-  }
-
-  const res = await fetch(
-    'https://api.search.brave.com/res/v1/web/search' +
-      `?q=${encodeURIComponent(input.query)}&count=5&country=se`,
-    {
-      headers: {
-        Accept: 'application/json',
-        'X-Subscription-Token': env.BRAVE_API_KEY,
-      },
-    }
-  );
-
-  if (!res.ok) {
-    return `Webbsökningen misslyckades (${res.status}).`;
-  }
-
-  const data = await res.json();
-  const snippets = data.web?.results
-    ?.slice(0, 3)
-    .map((r) => `${r.title}: ${r.description} (${r.url})`)
-    .join('\n');
-
-  return snippets || 'Inga resultat hittades.';
 }
 
 async function hamtaVader(instans) {

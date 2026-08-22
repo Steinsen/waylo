@@ -10,7 +10,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { tools, executeTool } from './tools.js';
+import { byggTools, executeTool } from './tools.js';
 import {
   hamtaInstans,
   byggSystemPrompt,
@@ -20,6 +20,7 @@ import {
 import { loggaChatt } from './poi.js';
 
 const MAX_ITERATIONER = 6;
+const MAX_PAUSER = 4;      // pause_turn räknas separat från verktygsvarven
 const MAX_TOKENS = 2048;
 const MAX_HISTORIK = 20; // meddelanden som skickas med bakåt
 
@@ -28,6 +29,7 @@ const MAX_HISTORIK = 20; // meddelanden som skickas med bakåt
  *   { typ: 'text',  text }        — textdelta att rendera direkt
  *   { typ: 'verktyg', namn }      — verktyg körs (visa "söker ...")
  *   { typ: 'poi',   ids }         — POI:er som nämnts, för kartan
+ *   { typ: 'kallor', kallor }     — källor från webbsökning, måste visas
  *   { typ: 'klar',  svar }        — färdigt svar
  *   { typ: 'fel',   meddelande }
  */
@@ -63,7 +65,10 @@ export async function* koraChatt(env, { fraga, historik, sprak, session_id }) {
     { role: 'user', content: fraga },
   ];
 
+  const tools = byggTools(instans_id);
+  const kallor = new Map();   // url -> { url, titel }
   let svarstext = '';
+  let pauser = 0;
 
   for (let i = 0; i < MAX_ITERATIONER; i++) {
     const stream = client.messages.stream({
@@ -81,11 +86,33 @@ export async function* koraChatt(env, { fraga, historik, sprak, session_id }) {
       ) {
         svarstext += event.delta.text;
         yield { typ: 'text', text: event.delta.text };
+      } else if (
+        event.type === 'content_block_start' &&
+        event.content_block.type === 'server_tool_use'
+      ) {
+        // Webbsökningen körs hos Anthropic — visa status under pausen
+        yield { typ: 'verktyg', namn: event.content_block.name };
       }
     }
 
     const svar = await stream.finalMessage();
+
+    // Sökresultatens encrypted_content måste tillbaka orört, så
+    // content-blocken skickas vidare precis som de kom.
     messages.push({ role: 'assistant', content: svar.content });
+
+    for (const kalla of plockaKallor(svar.content)) {
+      if (!kallor.has(kalla.url)) kallor.set(kalla.url, kalla);
+    }
+
+    // Anthropic pausar långa server-tool-turer. Skicka tillbaka det
+    // pausade svaret oförändrat så fortsätter den där den slutade —
+    // utan detta klipps svaret tyst mitt i.
+    if (svar.stop_reason === 'pause_turn') {
+      if (++pauser > MAX_PAUSER) break;
+      i--;   // en paus är inte ett verktygsvarv
+      continue;
+    }
 
     if (svar.stop_reason !== 'tool_use') {
       break;
@@ -123,6 +150,7 @@ export async function* koraChatt(env, { fraga, historik, sprak, session_id }) {
 
   const poi_ids = [...ctx.poi_ids];
   if (poi_ids.length) yield { typ: 'poi', ids: poi_ids };
+  if (kallor.size) yield { typ: 'kallor', kallor: [...kallor.values()] };
 
   await loggaChatt(env, {
     instans_id,
@@ -202,6 +230,21 @@ export async function handleChat(request, env) {
       Connection: 'keep-alive',
     },
   });
+}
+
+/**
+ * Plockar ut källhänvisningar ur svarets textblock. Anthropics villkor
+ * kräver att källorna visas för slutanvändaren när svaret återges.
+ */
+function plockaKallor(content) {
+  const ut = [];
+  for (const block of content) {
+    if (block.type !== 'text' || !block.citations) continue;
+    for (const c of block.citations) {
+      if (c.url) ut.push({ url: c.url, titel: c.title ?? c.url });
+    }
+  }
+  return ut;
 }
 
 /** Trimmar och validerar historiken från klienten. */

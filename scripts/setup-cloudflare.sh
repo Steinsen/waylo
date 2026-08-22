@@ -88,7 +88,6 @@ Nästa steg:
   1. Lägg in hemligheterna (frågar efter värdet interaktivt):
        cd workers/api
        npx wrangler secret put ANTHROPIC_API_KEY
-       npx wrangler secret put BRAVE_API_KEY
 
   2. Deploya:
        ./scripts/deploy.sh

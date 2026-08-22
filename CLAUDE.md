@@ -9,7 +9,7 @@ sin egen databas med platsspecifik data men delar samma kodbas och motor.
 **Inte bara en trailguide** — WayLo svarar på allt en lokal skulle veta:
 aktiviteter, sevärdheter, restauranger, affärer, transport, öppettider.
 Lokala frågor hämtas från databasen. Allmänna frågor ("var är närmaste
-apotek?") hämtas från webben via Brave Search.
+apotek?") hämtas från webben via Claudes inbyggda web search.
 
 Arctic Lodge (arcticlodge.nu) är första instansen / referenskunden.
 Ny config + ny databas = ny instans för vilket område som helst.
@@ -57,7 +57,7 @@ Ny config + ny databas = ny instans för vilket område som helst.
 | Frontend | React + Vite | Lätt att bädda in som widget |
 | Karta | Leaflet + Lantmäteriet WMTS | Svenska topografiska kartor |
 | AI | Claude API med tool use | claude-sonnet-4-6 |
-| Webbasökning | Brave Search API | GDPR-ok, billig |
+| Webbsökning | Claude web search (server tool) | Inbyggt i API:t, källhänvisningar, ingen extra nyckel |
 
 **Allt lever inom Cloudflare — ingen extern databas.**
 
@@ -149,7 +149,6 @@ ENVIRONMENT = "production"
 Miljövariabler (läggs in i Cloudflare Dashboard → Workers → Settings):
 ```
 ANTHROPIC_API_KEY
-BRAVE_API_KEY
 LANTMATERIET_TOKEN   # när avgiftsfri utgår 2026-12-31
 ```
 
@@ -237,7 +236,7 @@ sommaraktiviteter mitt i vintern.
 
 ## Chatbot — tool use
 
-Claude får tre verktyg:
+Claude får tre verktyg — två kör vi, ett kör Anthropic:
 
 ```javascript
 const tools = [
@@ -257,17 +256,18 @@ const tools = [
       }
     }
   },
+  // Server tool — Anthropic kör sökningen, vi implementerar ingenting.
+  // user_location lokaliserar träffarna till instansens ort.
   {
-    name: 'search_web',
-    description: 'Sök aktuell info på internet — öppettider, events, ' +
-      'väder, butiker, transport. Använd när frågan gäller något som ' +
-      'kan ha förändrats eller inte finns i lokal databas.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string' }
-      },
-      required: ['query']
+    type: 'web_search_20260318',
+    name: 'web_search',
+    max_uses: 5,
+    user_location: {
+      type: 'approximate',
+      city: 'Riksgränsen',
+      region: 'Norrbotten',
+      country: 'SE',
+      timezone: 'Europe/Stockholm'
     }
   },
   {
@@ -311,18 +311,6 @@ export async function executeTool(name, input, env, instans_id) {
 
       const { results } = await env.DB.prepare(query).bind(...params).all();
       return JSON.stringify(results);
-    }
-
-    case 'search_web': {
-      const res = await fetch(
-        `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(input.query)}`,
-        { headers: { 'X-Subscription-Token': env.BRAVE_API_KEY } }
-      );
-      const data = await res.json();
-      const snippets = data.web?.results?.slice(0, 3)
-        .map(r => `${r.title}: ${r.description}`)
-        .join('\n');
-      return snippets || 'Inga resultat hittades.';
     }
 
     case 'get_weather': {
@@ -495,3 +483,4 @@ Samma kodbas, ny config + ny databas = ny instans.
 - SQLite-syntax i schema — ingen PostgreSQL-specifik syntax
 - `ON DELETE CASCADE` på alla `poi_*`-tabeller
 - Väder-API: yr.no (api.met.no) — gratis, ingen nyckel, täcker Skandinavien
+- Webbsökning är Anthropics server tool — källhänvisningarna MÅSTE visas för gästen

@@ -19,6 +19,24 @@ const FORDELAR = {
 };
 
 /**
+ * Var Anthropics web search ska anses stå geografiskt. Utan detta
+ * tolkas "närmaste apotek" utifrån var Anthropics servrar råkar ligga.
+ */
+const SOKPLATS = {
+  'inst-arctic-lodge': {
+    type: 'approximate',
+    city: 'Riksgränsen',
+    region: 'Norrbotten',
+    country: 'SE',
+    timezone: 'Europe/Stockholm',
+  },
+};
+
+export function sokplats(instans_id) {
+  return SOKPLATS[instans_id] ?? null;
+}
+
+/**
  * Arktisk säsongslogik: lång vinter, kort sommar.
  * Juni–september räknas som sommar, resten som vinter.
  */

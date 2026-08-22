@@ -17,7 +17,7 @@ workers/
   api/                    Chatbot-API + D1-queries
     src/index.js          Routing
     src/chat.js           Claude tool use-loop, SSE-streaming
-    src/tools.js          search_poi_database / search_web / get_weather
+    src/tools.js          search_poi_database / get_weather + Claude web search
     src/poi.js            D1-queries
     src/config.js         Instanskonfig + systemprompt + säsongslogik
   tile-proxy/             Proxar Lantmäteriets WMTS-tiles med cache
@@ -38,7 +38,6 @@ scripts/
 ./scripts/setup-cloudflare.sh          # skapar resurser + seedar databasen
 cd workers/api
 npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put BRAVE_API_KEY
 cd ../.. && ./scripts/deploy.sh        # deployar allt
 ```
 
@@ -55,7 +54,8 @@ cd ../.. && ./scripts/deploy.sh        # deployar allt
 
 `POST /chat` tar `{ fraga, historik?, sprak?, session_id?, stream? }` och
 strömmar händelser: `text` (textdelta), `verktyg` (verktyg körs),
-`poi` (POI-id:n att markera på kartan), `klar`, `fel`.
+`poi` (POI-id:n att markera på kartan), `kallor` (källhänvisningar från
+webbsökning — måste visas för gästen), `klar`, `fel`.
 
 ## Lokal utveckling
 
