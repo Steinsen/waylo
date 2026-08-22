@@ -16,17 +16,21 @@
 const CACHE_TTL = 86400; // 24h
 const MAX_ZOOM = 14;
 
-// Lantmäteriets öppna WMTS. Kräver en token som hämtas gratis via
-// opendata.lantmateriet.se — den sitter i sökvägen, inte som header.
+// Lantmäteriets öppna WMTS, avgiftsfri och utan token.
 //
-// Sätt WMTS_URL i wrangler.toml för att peka någon annanstans.
-// Platshållarna {z} {x} {y} ersätts per tile, {token} med
-// LANTMATERIET_TOKEN. Saknas {token} i URL:en men token finns skickas
-// den istället som Authorization: Bearer, för endpoints som vill ha
-// det så.
+// Sätt WMTS_URL i wrangler.toml för att peka någon annanstans — t.ex.
+// den token-baserade api.lantmateriet.se, eller den betalversion som
+// tar vid när avgiftsfriheten utgår 2026-12-31. Platshållarna {z} {x}
+// {y} ersätts per tile och {token} med LANTMATERIET_TOKEN. Saknar
+// mallen {token} men en token är satt skickas den som
+// Authorization: Bearer istället.
+const WMTS_BAS = 'https://maps.lantmateriet.se/open/topowebb-ccby/v1/wmts';
+
 const STANDARD_WMTS =
-  'https://api.lantmateriet.se/open/topowebb-ccby/v1/wmts' +
-  '/token/{token}/1.0.0/topowebb/default/3857/{z}/{y}/{x}.png';
+  WMTS_BAS +
+  '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+  '&LAYER=topowebb&STYLE=default&TILEMATRIXSET=3857' +
+  '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png';
 
 /**
  * Hanterar GET /tiles/{z}/{x}/{y}.png. Returnerar null om vägen inte
@@ -34,6 +38,13 @@ const STANDARD_WMTS =
  */
 export async function hanteraTile(request, env, ctx, cors) {
   const url = new URL(request.url);
+
+  // Diagnostik: läser GetCapabilities och plockar ut de identifierare
+  // som GetTile-anropen måste stämma med. Workern når Lantmäteriet
+  // även när utvecklingsmiljön inte gör det.
+  if (url.pathname === '/tiles/capabilities') {
+    return await hamtaCapabilities(env, cors, url.searchParams.has('raw'));
+  }
 
   const match = url.pathname.match(/^\/tiles\/(\d+)\/(\d+)\/(\d+)\.png$/);
   if (!match) return null;
@@ -116,6 +127,60 @@ export async function hanteraTile(request, env, ctx, cors) {
   );
 
   return svar;
+}
+
+/** Plockar ut alla värden för en namnrymdad tagg. */
+function taggar(xml, namn) {
+  const träffar = [...xml.matchAll(
+    new RegExp(`<(?:\\w+:)?${namn}[^>]*>([^<]*)</(?:\\w+:)?${namn}>`, 'g')
+  )];
+  return [...new Set(träffar.map((m) => m[1].trim()).filter(Boolean))];
+}
+
+async function hamtaCapabilities(env, cors, ra) {
+  const capUrl =
+    (env.WMTS_CAPABILITIES_URL || WMTS_BAS) +
+    '?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0';
+
+  const headers = {};
+  if (env.LANTMATERIET_TOKEN) {
+    headers.Authorization = `Bearer ${env.LANTMATERIET_TOKEN}`;
+  }
+
+  const res = await fetch(capUrl, { headers });
+  const xml = await res.text();
+
+  if (ra) {
+    return new Response(xml, {
+      status: res.status,
+      headers: { ...cors, 'Content-Type': 'application/xml; charset=utf-8' },
+    });
+  }
+
+  if (!res.ok) {
+    return Response.json(
+      { url: capUrl, status: res.status, svar: xml.slice(0, 500) },
+      { status: 502, headers: cors }
+    );
+  }
+
+  // ResourceURL-mallar är det RESTful mönstret, om tjänsten erbjuder ett
+  const mallar = [...xml.matchAll(/template="([^"]+)"/g)].map((m) => m[1]);
+
+  return Response.json(
+    {
+      url: capUrl,
+      status: res.status,
+      storlek_kb: Math.round(xml.length / 1024),
+      identifierare: taggar(xml, 'Identifier').slice(0, 40),
+      format: taggar(xml, 'Format'),
+      tilematrixset: taggar(xml, 'TileMatrixSet'),
+      supported_crs: taggar(xml, 'SupportedCRS'),
+      resource_url_mallar: mallar,
+      nuvarande_mall: env.WMTS_URL || STANDARD_WMTS,
+    },
+    { headers: cors }
+  );
 }
 
 function tileSvar(buffer, cors, kalla) {
