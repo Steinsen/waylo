@@ -14,6 +14,7 @@
  */
 
 import { authHeaders, authStatus } from './lantmateriet.js';
+import { VERSION } from './version.js';
 
 const CACHE_TTL = 86400; // 24h
 const MAX_ZOOM = 14;
@@ -153,7 +154,7 @@ async function hamtaCapabilities(env, cors, ra) {
 
   if (!res.ok) {
     return Response.json(
-      { url: capUrl, status: res.status, auth, svar: xml.slice(0, 500) },
+      { version: VERSION, url: capUrl, status: res.status, auth, svar: xml.slice(0, 500) },
       { status: 502, headers: cors }
     );
   }
@@ -163,6 +164,7 @@ async function hamtaCapabilities(env, cors, ra) {
 
   return Response.json(
     {
+      version: VERSION,
       url: capUrl,
       status: res.status,
       auth,

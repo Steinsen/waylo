@@ -18,6 +18,7 @@
 
 import { handleChat } from './chat.js';
 import { hanteraTile } from './tiles.js';
+import { VERSION } from './version.js';
 import {
   poiForKarta,
   hamtaPoi,
@@ -84,6 +85,7 @@ async function route(request, env, url, ctx, cors) {
 
     return Response.json({
       tjanst: 'waylo',
+      version: VERSION,
       instans_id,
       miljo: env.ENVIRONMENT,
       sasong: aktuellSasong(),
