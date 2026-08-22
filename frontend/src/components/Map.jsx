@@ -39,8 +39,8 @@ export default function Map({ config, poier = [], markerade = [], synlig = true 
     });
 
     L.tileLayer(`${config.tiles_url}/tiles/{z}/{x}/{y}.png`, {
-      attribution: '© Lantmäteriet CC0',
-      maxZoom: 14,
+      attribution: '© Lantmäteriet CC BY',
+      maxZoom: 15,
       minZoom: 5,
     }).addTo(karta);
 

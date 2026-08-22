@@ -17,7 +17,8 @@ import { authHeaders, authStatus } from './lantmateriet.js';
 import { VERSION } from './version.js';
 
 const CACHE_TTL = 86400; // 24h
-const MAX_ZOOM = 14;
+// Deras TileMatrixSet 3857 går 0–15 enligt GetCapabilities.
+const MAX_ZOOM = 15;
 
 // Lantmäteriets öppna WMTS, avgiftsfri och utan token.
 //
@@ -29,11 +30,12 @@ const MAX_ZOOM = 14;
 // Authorization: Bearer istället.
 const WMTS_BAS = 'https://maps.lantmateriet.se/open/topowebb-ccby/v1/wmts';
 
-const STANDARD_WMTS =
-  WMTS_BAS +
-  '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
-  '&LAYER=topowebb&STYLE=default&TILEMATRIXSET=3857' +
-  '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png';
+// Deras egen ResourceURL-mall ur GetCapabilities. TileMatrixSet 3857 är
+// GoogleMapsCompatible, så Leaflets z/x/y går rakt in utan omprojicering.
+// Lagret styrs av WMTS_LAGER: topowebb eller topowebb_nedtonad.
+function standardWmts(lager) {
+  return `${WMTS_BAS}/1.0.0/${lager}/default/3857/{z}/{y}/{x}.png`;
+}
 
 /**
  * Hanterar GET /tiles/{z}/{x}/{y}.png. Returnerar null om vägen inte
@@ -77,7 +79,8 @@ export async function hanteraTile(request, env, ctx, cors) {
   }
 
   // 3) Lantmäteriet
-  const mall = env.WMTS_URL || STANDARD_WMTS;
+  const mall =
+    env.WMTS_URL || standardWmts(env.WMTS_LAGER || 'topowebb');
   const token = env.LANTMATERIET_TOKEN || '';
 
   if (mall.includes('{token}') && !token) {
@@ -174,7 +177,8 @@ async function hamtaCapabilities(env, cors, ra) {
       tilematrixset: taggar(xml, 'TileMatrixSet'),
       supported_crs: taggar(xml, 'SupportedCRS'),
       resource_url_mallar: mallar,
-      nuvarande_mall: env.WMTS_URL || STANDARD_WMTS,
+      nuvarande_mall:
+        env.WMTS_URL || standardWmts(env.WMTS_LAGER || 'topowebb'),
     },
     { headers: cors }
   );

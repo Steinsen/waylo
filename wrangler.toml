@@ -55,8 +55,13 @@ MEDIA_BASE_URL = "https://media.arcticlodge.nu"
 # Sajten ligger på samma origin som API:t, så det här gäller bara
 # WordPress-widgeten. Tom lista = tillåt alla.
 ALLOWED_ORIGINS = "https://arcticlodge.nu,https://www.arcticlodge.nu"
-# Upstream för kartrutorna, {z}/{x}/{y} ersätts per tile. Tom =
-# Lantmäteriets avgiftsfria topowebb-ccby. Byt när den utgår 2026-12-31.
+# Kartlager: topowebb eller topowebb_nedtonad. Det nedtonade lagret
+# konkurrerar mindre med POI-markörerna.
+WMTS_LAGER = "topowebb"
+
+# Full upstream-URL för kartrutorna. Tom = Lantmäteriets topowebb-ccby
+# enligt deras egen ResourceURL-mall. Sätt den här för att peka någon
+# annanstans — {z}/{x}/{y} och {token} ersätts per anrop.
 WMTS_URL = ""
 
 # Inloggning mot Lantmäteriet. maps.lantmateriet.se svarar med en

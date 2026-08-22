@@ -410,16 +410,17 @@ export default {
   }
 }
 
-// OBS: Lantmäteriets avgiftsfria tjänst utgår 2026-12-31
-// Byt då LAYER-URL + lägg till: Authorization: Bearer ${env.LANTMATERIET_TOKEN}
+// Tjänsten kräver inloggning med Lantmäteriet-konto (HTTP Basic).
+// TileMatrixSet 3857 är GoogleMapsCompatible, zoom 0-15, så Leaflets
+// z/x/y går rakt in. Avgiftsfriheten utgår 2026-12-31.
 ```
 
 ### Leaflet-config i frontend
 
 ```javascript
-L.tileLayer('https://tiles.arcticlodge.nu/tiles/{z}/{x}/{y}.png', {
-  attribution: '© Lantmäteriet CC0',
-  maxZoom: 14
+L.tileLayer('/tiles/{z}/{x}/{y}.png', {
+  attribution: '© Lantmäteriet CC BY',
+  maxZoom: 15
 }).addTo(map);
 ```
 
