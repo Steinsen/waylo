@@ -1,16 +1,17 @@
 {
-  "name": "waylo-api",
+  "name": "waylo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "dev:local": "wrangler dev --local",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "dev": "npm run build && wrangler dev",
     "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply DB --remote",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:seed": "wrangler d1 execute waylo --remote --file=../../schema/seed-arctic-lodge.sql",
-    "db:seed:local": "wrangler d1 execute waylo --local --file=../../schema/seed-arctic-lodge.sql"
+    "db:seed": "wrangler d1 execute waylo --remote --file=schema/seed-arctic-lodge.sql",
+    "db:seed:local": "wrangler d1 execute waylo --local --file=schema/seed-arctic-lodge.sql",
+    "console:sql": "./scripts/sql-for-console.py"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0"

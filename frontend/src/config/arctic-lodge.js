@@ -15,9 +15,12 @@ export const config = {
     bokning_url: 'https://arcticlodge.nu/boka',
   },
 
-  // Cloudflare-endpoints (kan överridas med VITE_API_URL / VITE_TILES_URL)
-  api_url: import.meta.env.VITE_API_URL || 'https://api.arcticlodge.nu',
-  tiles_url: import.meta.env.VITE_TILES_URL || 'https://tiles.arcticlodge.nu',
+  // Tomt = samma origin som sidan. Sajten serveras av samma Worker som
+  // API:t, så relativa vägar räcker och CORS blir aldrig inblandat.
+  // Widgeten byggs med VITE_API_URL satt, eftersom den körs på
+  // arcticlodge.nu och måste peka tillbaka hit.
+  api_url: import.meta.env.VITE_API_URL ?? '',
+  tiles_url: import.meta.env.VITE_TILES_URL ?? '',
 
   valkomsttext:
     'Hej! Jag är din lokalguide här i Riksgränsen. Fråga mig om ' +

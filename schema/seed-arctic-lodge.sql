@@ -1,6 +1,6 @@
 -- ============================================================
 --  WayLo — Seed-data för instansen "Arctic Lodge Katterjokk"
---  Kör: npm run db:seed   (från workers/api/)
+--  Kör: npm run db:seed   (från repo-roten)
 --  Kräver att migreringarna körts först.
 -- ============================================================
 

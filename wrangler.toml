@@ -1,0 +1,52 @@
+# En enda Worker serverar allt: den byggda React-appen som statiska
+# assets, chatbot-API:t och kartrutorna. Root directory i Cloudflare
+# är repo-roten — inget att ställa in.
+
+name = "waylo"
+main = "worker/src/index.js"
+compatibility_date = "2026-08-18"
+compatibility_flags = ["nodejs_compat"]
+
+# --- Frontend som statiska assets ------------------------------------
+# Filer som finns här serveras utan att workern körs. Vägar utan
+# matchande fil går till workern, som lämnar tillbaka icke-API-vägar
+# hit igen så att klientsidans routing fungerar.
+[assets]
+directory = "./frontend/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# --- D1 ---------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "waylo"
+database_id = "4f8f8f68-ac34-4d34-a108-6de70fbcb873"
+# Numrerade migreringar körs av deploy-scriptet, en gång var.
+migrations_dir = "schema/migrations"
+
+# --- R2 (bilder + GPX) ------------------------------------------------
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "waylo-media"
+
+# --- KV (tile-cache + instanskonfig) ----------------------------------
+[[kv_namespaces]]
+binding = "CACHE"
+id = "5b7afa45e2784be7b0e63e1a1f6df72a"
+
+[vars]
+ENVIRONMENT = "production"
+INSTANS_ID = "inst-arctic-lodge"
+# Byt modell utan kodändring.
+CLAUDE_MODEL = "claude-sonnet-4-6"
+MEDIA_BASE_URL = "https://media.arcticlodge.nu"
+# Sajten ligger på samma origin som API:t, så det här gäller bara
+# WordPress-widgeten. Tom lista = tillåt alla.
+ALLOWED_ORIGINS = "https://arcticlodge.nu,https://www.arcticlodge.nu"
+# Upstream för kartrutorna, {z}/{x}/{y} ersätts per tile. Tom =
+# Lantmäteriets avgiftsfria topowebb-ccby. Byt när den utgår 2026-12-31.
+WMTS_URL = ""
+
+# Hemlighet (sätts i dashboarden eller med `wrangler secret put`):
+#   ANTHROPIC_API_KEY
+#   LANTMATERIET_TOKEN  (först när Lantmäteriets avgiftsfria tjänst utgår)

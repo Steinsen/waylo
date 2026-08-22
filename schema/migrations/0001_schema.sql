@@ -1,7 +1,7 @@
 -- ============================================================
 --  TURISTCHATBOT — POI-databas
 --  Cloudflare D1 (SQLite) — kompatibel syntax
---  Körs av: wrangler d1 migrations apply DB --remote (från workers/api/)
+--  Körs av: wrangler d1 migrations apply DB --remote (från repo-roten)
 -- ============================================================
 
 

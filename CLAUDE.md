@@ -20,23 +20,23 @@ Ny config + ny databas = ny instans för vilket område som helst.
 
 ```
 /
-├── workers/
-│   ├── tile-proxy/         # Cloudflare Worker: proxar Lantmäteriets WMTS-tiles
-│   └── api/                # Cloudflare Worker: chatbot-API + D1-queries
-│       ├── src/
-│       │   ├── index.js    # Huvud-entry, routing
-│       │   ├── chat.js     # Claude tool use-logik
-│       │   ├── poi.js      # D1-queries mot POI-databasen
-│       │   └── tools.js    # Tool-implementationer (db, web, väder)
-│       └── wrangler.toml   # Cloudflare-config inkl. D1-binding
+├── wrangler.toml           # En Worker för allt — config i repo-roten
+├── worker/
+│   └── src/
+│       ├── index.js        # Routing: API, tiles, resten till ASSETS
+│       ├── chat.js         # Claude tool use-logik
+│       ├── poi.js          # D1-queries mot POI-databasen
+│       ├── tools.js        # Tool-implementationer (db, väder)
+│       └── tiles.js        # Lantmäteriets WMTS med cache
 │
 ├── schema/
-│   ├── migrations/         # Numrerade D1-migreringar, körs av deploy-scriptet
+│   ├── migrations/         # Numrerade D1-migreringar, körs vid deploy
 │   │   └── 0001_schema.sql
-│   └── seed-arctic-lodge.sql
+│   ├── seed-arctic-lodge.sql
+│   └── console/            # Samma SQL utan kommentarer, för D1-konsolen
 │
-├── frontend/               # React + Vite — kartvy + chatbot-widget
-│   └── src/
+├── frontend/               # React + Vite — byggs till frontend/dist och
+│   └── src/                # serveras som statiska assets av workern
 │       ├── components/
 │       │   ├── Map.jsx     # Leaflet-karta med POI-markers och GPX-spår
 │       │   └── Chat.jsx    # Chatbot-widget
@@ -73,7 +73,7 @@ Ny config + ny databas = ny instans för vilket område som helst.
 wrangler d1 create waylo
 
 # Kör schemat (migreringarna körs mot bindningen DB, inte databasnamnet)
-cd workers/api && wrangler d1 migrations apply DB --remote
+wrangler d1 migrations apply DB --remote
 
 # Lägg in testdata för Arctic Lodge
 wrangler d1 execute waylo --file=schema/seed-arctic-lodge.sql
@@ -89,27 +89,25 @@ wrangler r2 bucket create waylo-media
 Bilder och GPX-filer laddas upp hit. URL-mönster:
 `https://media.arcticlodge.nu/{instans_id}/{poi_slug}/{filnamn}`
 
-### Steg 3 — Workers
-Två separata Workers med egen `wrangler.toml` vardera:
+### Steg 3 — Workern
+En Worker (`worker/src/`) med `wrangler.toml` i repo-roten:
 
-**tile-proxy** (`workers/tile-proxy/`):
-- Lyssnar på `GET /tiles/{z}/{x}/{y}.png`
-- Hämtar från Lantmäteriet, lägger på CORS-headers
-- Cachas 24h i Cloudflare KV
-
-**api** (`workers/api/`):
 - `POST /chat` — chatbot med tool use
 - `GET /poi` — hämta POI:er för kartvisning
-- Binder D1-databasen direkt (ingen nätverkslatens)
+- `GET /tiles/{z}/{x}/{y}.png` — Lantmäteriets rutor, cachas 24h i KV
+- allt annat — den byggda React-appen från ASSETS
+
+Binder D1 direkt (ingen nätverkslatens). Frontend serveras från samma
+origin, så CORS behövs bara för WordPress-widgeten.
 
 ### Steg 4 — Frontend
 ```bash
 cd frontend && npm create vite@latest . -- --template react
 ```
 
-Byggs och deployas till Cloudflare Pages:
+Byggs till `frontend/dist` och deployas som en del av workern:
 ```bash
-wrangler pages deploy dist
+npm run deploy
 ```
 
 Bäddas in på arcticlodge.nu via:
@@ -124,7 +122,7 @@ Ingen annan kod i WordPress.
 
 ---
 
-## wrangler.toml (api worker)
+## wrangler.toml
 
 ```toml
 name = "waylo"
@@ -363,7 +361,7 @@ Regler:
 
 ## Kartlösning
 
-### Tile-proxy Worker (`workers/tile-proxy/`)
+### Tile-hantering (`worker/src/tiles.js`)
 
 ```javascript
 export default {
@@ -463,7 +461,7 @@ export const config = {
 wrangler d1 create waylo-riksgransenturism
 
 # 2. Kör samma schema
-cd workers/api && wrangler d1 migrations apply DB --remote
+wrangler d1 migrations apply DB --remote
 
 # 3. Ny seed-fil med lokala POI:er
 wrangler d1 execute waylo-riksgransenturism --file=schema/seed-riksgransenturism.sql

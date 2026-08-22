@@ -6,10 +6,10 @@ Allt körs i Cloudflare: D1 (databas), R2 (media), KV (cache), Workers
 Det finns två vägar: helt via dashboarden och GitHub, eller från din
 egen maskin med Wrangler. Den första kräver ingenting installerat.
 
-## Deploy helt från webbläsaren (rekommenderas)
+## Deploy helt från webbläsaren
 
-Inget lokalt behövs — allt görs i Cloudflares dashboard, och koden
-kommer från GitHub. Databasen migrerar sig själv vid varje deploy.
+Inget lokalt behövs. **Ett** Cloudflare-projekt räcker — samma Worker
+serverar sajten, API:t och kartrutorna.
 
 ### 1. Skapa resurserna i dashboarden
 
@@ -19,157 +19,60 @@ kommer från GitHub. Databasen migrerar sig själv vid varje deploy.
 | KV-namespace | Storage & Databases → KV → Create | `waylo-cache` |
 | R2-bucket | R2 → Create bucket | `waylo-media` |
 
-Kopiera **Database ID** från D1-databasen och **Namespace ID** från KV.
-De är identifierare, inte hemligheter — de hör hemma i `wrangler.toml`.
+Lägg in **Database ID** och **Namespace ID** i `wrangler.toml` i
+repo-roten. De är identifierare, inte hemligheter.
 
-### 2. Lägg in id:na i repot
+### 2. Koppla repot
 
-Redigera direkt i GitHubs webbeditor:
+Workers & Pages → Create → Workers → Connect to Git. Välj repot.
 
-- `workers/api/wrangler.toml` → `database_id` och `id` (KV)
-- `workers/tile-proxy/wrangler.toml` → `id` (samma KV)
-
-Commita. Bygget kan inte hitta databasen förrän det här är gjort.
-
-### 3. Koppla projekten
-
-| Projekt | Typ | Root directory | Build watch path |
-|---|---|---|---|
-| `waylo` | Worker | `workers/api` | `workers/api/*` |
-| `waylo-tiles` | Worker | `workers/tile-proxy` | `workers/tile-proxy/*` |
-| `waylo-web` | Pages | `frontend` | `frontend/*` |
-
-Cloudflare plockar upp `deploy`-scriptet ur `package.json` automatiskt.
-För api-workern är det:
+**Root directory: repo-roten.** Inget att ställa in — `wrangler.toml`
+och `package.json` ligger där. Cloudflare plockar upp deploy-scriptet:
 
 ```
 wrangler d1 migrations apply DB --remote && wrangler deploy
 ```
 
-Migreringarna körs alltså före varje deploy. De är numrerade och spåras
-i tabellen `d1_migrations`, så varje migrering körs exakt en gång —
-andra bygget är en no-op. Nya tabeller i framtiden lägger du till som
-`schema/migrations/0002_*.sql` och de applicerar sig själva vid nästa
-push. Pages behöver build-kommando `npm run build` och output `dist`.
+Build-kommandot är `npm run build`, som bygger frontend till
+`frontend/dist`. Migreringarna körs före varje deploy, spåras i
+`d1_migrations` och appliceras exakt en gång var.
 
-### 4. Lägg in API-nyckeln
+### 3. Lägg in API-nyckeln
 
 `waylo` → Settings → Variables and Secrets → Add → **Secret**:
 `ANTHROPIC_API_KEY`. Det är den enda nyckeln.
 
-### 5. Seeda instansdatan — en gång
+### 4. Seeda instansdatan — en gång
 
 Migreringarna skapar tabellerna men lägger inte in någon data. Seeden
-är instansspecifik (Arctic Lodges POI:er), så den ska inte köras
-automatiskt för varje ny databas.
+är instansspecifik, så den ska inte köras automatiskt för varje ny
+databas. D1 → `waylo` → **Console**, klistra in
+**`schema/console/seed-arctic-lodge.console.sql`**.
 
-Migreringarna skapar tabellerna automatiskt vid deploy. Har bygget inte
-gått igenom än kan du skapa dem direkt i konsolen istället — D1 →
-`waylo` → **Console** i dashboarden:
-
-1. Klistra in **`schema/console/0001_schema.console.sql`** — skapar de
-   nio tabellerna och de globala kategorierna.
-2. Klistra in **`schema/console/seed-arctic-lodge.console.sql`** —
-   instansen och dess POI:er.
-
-Båda är idempotenta (`CREATE TABLE IF NOT EXISTS` och
-`INSERT OR IGNORE`), så det gör ingen skada att köra dem två gånger.
-Kör du schemat för hand vet inte `d1_migrations` om det — nästa bygge
-applicerar migreringen ändå, konstaterar att allt redan finns och
-bokför den. Ingen konflikt.
+Har bygget inte gått igenom än kan du skapa tabellerna för hand först
+med `schema/console/0001_schema.console.sql`. Båda är idempotenta, och
+nästa bygge bokför migreringen utan att göra om något.
 
 > **Använd filerna i `schema/console/`, inte originalen.** D1-konsolen
 > delar inklistrad SQL på semikolon och kör varje bit som en egen query.
-> Bitar som bara innehåller kommentarer blir tomma och avvisas med
-> *"Requests without any query are not supported"*. Filerna i
-> `schema/console/` är samma SQL utan kommentarer, genererad med
-> `./scripts/sql-for-console.py <fil>`. Får du ett enstaka sådant fel
-> allra sist är det den tomma raden efter sista semikolonet — allt
-> ovanför har körts.
+> Bitar som bara innehåller kommentarer avvisas med *"Requests without
+> any query are not supported"*. Filerna i `schema/console/` är samma
+> SQL utan kommentarer, genererad med `./scripts/sql-for-console.py`.
 
-### 6. Verifiera
+### 5. Verifiera
 
-Öppna `https://waylo.<ditt-konto>.workers.dev/health`. Den ska visa
-`db_ok: true` och alla bindings som `true`.
+Öppna `https://waylo.<ditt-konto>.workers.dev/` — sajten ska ladda med
+karta och chatt. Sen `/health`, som ska visa `db_ok: true` och alla fem
+bindings som `true`.
 
 ## Alternativ: deploy från din egen maskin
 
-### Förutsättningar
-
 ```bash
-npx wrangler login                  # eller:
-export CLOUDFLARE_API_TOKEN=...     # token med Workers/D1/R2/KV/Pages-rättigheter
-export CLOUDFLARE_ACCOUNT_ID=...
+npx wrangler login
+npm install
+npm run deploy       # migrerar och deployar
+npm run db:seed      # en gång, för instansdatan
 ```
-
-Du behöver också:
-
-- **ANTHROPIC_API_KEY** — console.anthropic.com
-
-Det är den enda API-nyckeln som behövs. Webbsökningen är Claudes
-inbyggda server tool ($10 per 1 000 sökningar, debiteras på samma
-konto) och vädret kommer från yr.no som inte kräver nyckel.
-
-### Skapa resurser och seeda databasen
-
-```bash
-./scripts/setup-cloudflare.sh
-```
-
-Scriptet är idempotent och gör följande:
-
-1. `wrangler d1 create waylo` (hoppas över om den finns)
-2. `wrangler kv namespace create waylo-cache`
-3. `wrangler r2 bucket create waylo-media`
-4. Skriver in `database_id` och KV-`id` i båda `wrangler.toml`
-5. Kör migreringarna och `schema/seed-arctic-lodge.sql`
-
-Vill du göra det för hand:
-
-```bash
-wrangler d1 create waylo
-wrangler kv namespace create waylo-cache
-wrangler r2 bucket create waylo-media
-# klistra in id:n i workers/api/wrangler.toml och workers/tile-proxy/wrangler.toml
-cd workers/api && wrangler d1 migrations apply DB --remote
-wrangler d1 execute waylo --remote --file=schema/seed-arctic-lodge.sql
-```
-
-### Hemligheter
-
-Aldrig i kod eller `wrangler.toml` — alltid som secrets:
-
-```bash
-cd workers/api
-npx wrangler secret put ANTHROPIC_API_KEY
-```
-
-`LANTMATERIET_TOKEN` behövs först när den avgiftsfria tjänsten utgår
-**2026-12-31**. Sätt då `WMTS_URL` i `workers/tile-proxy/wrangler.toml`
-till den nya endpointen och lägg in token som secret — proxyn skickar den
-automatiskt som `Authorization: Bearer`.
-
-### Deploya
-
-```bash
-./scripts/deploy.sh            # allt
-./scripts/deploy.sh api        # bara API-workern
-./scripts/deploy.sh tiles      # bara tile-proxyn
-./scripts/deploy.sh frontend   # bara Pages
-```
-
-Verifiera:
-
-```bash
-curl https://api.arcticlodge.nu/health
-curl https://api.arcticlodge.nu/poi | head
-curl -N -X POST https://api.arcticlodge.nu/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"fraga":"Vad kan vi göra med barnen i sommar?"}'
-```
-
-`/health` visar vilka bindings och nycklar som är på plats — börja alltid
-felsökningen där.
 
 ## Domäner
 
@@ -179,13 +82,13 @@ Settings → Domains & Routes:
 | Värdnamn | Pekar på |
 |---|---|
 | `api.arcticlodge.nu` | Worker `waylo` |
-| `tiles.arcticlodge.nu` | Worker `waylo-tiles` |
 | `chat.arcticlodge.nu` | Pages-projektet `waylo` |
 | `media.arcticlodge.nu` | R2-bucketen `waylo-media` (Public bucket → Custom domain) |
 
 Byter du domäner: uppdatera `ALLOWED_ORIGINS` och `MEDIA_BASE_URL` i
-`workers/api/wrangler.toml` samt `api_url`/`tiles_url` i
-`frontend/src/config/arctic-lodge.js`.
+`wrangler.toml`. Frontend behöver inget — den använder relativa vägar
+mot sitt eget origin. Undantaget är widgeten, som byggs med
+`VITE_API_URL` satt till workerns adress.
 
 ## WordPress
 
@@ -226,10 +129,10 @@ VALUES ('poi-midnattssol-katterjokk', 'bild',
 ```bash
 # 1. Ny databas + schema + egen seed-fil
 wrangler d1 create waylo-riksgransenturism
-cd workers/api && wrangler d1 migrations apply DB --remote
+wrangler d1 migrations apply DB --remote
 wrangler d1 execute waylo-riksgransenturism --remote --file=schema/seed-riksgransenturism.sql
 
-# 2. Kopiera workers/api/wrangler.toml → ny name, database_id och INSTANS_ID
+# 2. Kopiera wrangler.toml → ny name, database_id och INSTANS_ID
 # 3. Ny config-fil i frontend/src/config/
 ```
 

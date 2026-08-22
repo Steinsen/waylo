@@ -1,15 +1,23 @@
 /**
- * WayLo API — Cloudflare Worker.
+ * WayLo — en Cloudflare Worker som serverar allt.
  *
- *   GET  /health       — status + kontroll av bindings
- *   GET  /instans      — instanskonfiguration för frontend
- *   GET  /poi          — POI:er för kartvyn (?sasong=&kategori=&fritext=)
- *   GET  /poi/:slug    — full POI med punkter, media och öppettider
- *   GET  /kategorier   — kategorier för filtrering
- *   POST /chat         — chatbot med tool use (SSE)
+ *   GET  /health                — status + kontroll av bindings
+ *   GET  /instans               — instanskonfiguration för frontend
+ *   GET  /poi                   — POI:er för kartvyn (?sasong=&kategori=)
+ *   GET  /poi/:slug             — full POI med punkter, media, öppettider
+ *   GET  /kategorier            — kategorier för filtrering
+ *   POST /chat                  — chatbot med tool use (SSE)
+ *   GET  /tiles/{z}/{x}/{y}.png — Lantmäteriets kartrutor via cache
+ *   allt annat                  — den byggda React-appen från ASSETS
+ *
+ * Statiska filer som finns i frontend/dist plockas ut av Cloudflare
+ * innan workern ens körs. Bara vägar utan matchande fil hamnar här,
+ * och det som inte är en API-väg lämnas vidare till ASSETS så att
+ * klientsidans routing fungerar.
  */
 
 import { handleChat } from './chat.js';
+import { hanteraTile } from './tiles.js';
 import {
   poiForKarta,
   hamtaPoi,
@@ -19,7 +27,7 @@ import {
 import { hamtaInstans, aktuellSasong, andraSasongen } from './config.js';
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin');
     const cors = corsHeaders(origin, env);
@@ -29,7 +37,7 @@ export default {
     }
 
     try {
-      const svar = await route(request, env, url);
+      const svar = await route(request, env, url, ctx, cors);
       const headers = new Headers(svar.headers);
       for (const [k, v] of Object.entries(cors)) headers.set(k, v);
       return new Response(svar.body, { status: svar.status, headers });
@@ -43,16 +51,21 @@ export default {
   },
 };
 
-async function route(request, env, url) {
+async function route(request, env, url, ctx, cors) {
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const instans_id = env.INSTANS_ID;
 
+  // GET /tiles/{z}/{x}/{y}.png — returnerar null om vägen inte matchar
+  const tile = await hanteraTile(request, env, ctx, cors);
+  if (tile) return tile;
+
   // GET /health
-  if (path === '/health' || path === '/') {
+  if (path === '/health') {
     const bindings = {
       DB: Boolean(env.DB),
       MEDIA: Boolean(env.MEDIA),
       CACHE: Boolean(env.CACHE),
+      ASSETS: Boolean(env.ASSETS),
       ANTHROPIC_API_KEY: Boolean(env.ANTHROPIC_API_KEY),
     };
     let db_ok = false;
@@ -62,7 +75,7 @@ async function route(request, env, url) {
     } catch { /* rapporteras som db_ok: false */ }
 
     return Response.json({
-      tjanst: 'waylo-api',
+      tjanst: 'waylo',
       instans_id,
       miljo: env.ENVIRONMENT,
       sasong: aktuellSasong(),
@@ -120,8 +133,19 @@ async function route(request, env, url) {
     return await handleChat(request, env);
   }
 
+  // Ingen API-väg matchade. Är det ett API-anrop som stavats fel vill vi
+  // svara med JSON; allt annat är sannolikt en klientsideväg och lämnas
+  // till ASSETS, som serverar index.html (single-page-application).
+  if (API_PREFIX.some((p) => path === p || path.startsWith(`${p}/`))) {
+    return Response.json({ fel: 'Hittades inte', path }, { status: 404 });
+  }
+
+  if (env.ASSETS) return env.ASSETS.fetch(request);
   return Response.json({ fel: 'Hittades inte', path }, { status: 404 });
 }
+
+/** Vägar som hör till API:t — allt annat går till frontend-assets. */
+const API_PREFIX = ['/health', '/instans', '/poi', '/kategorier', '/chat', '/tiles'];
 
 function corsHeaders(origin, env) {
   const tillatna = (env.ALLOWED_ORIGINS || '')

@@ -9,39 +9,37 @@ Se [`CLAUDE.md`](CLAUDE.md) för arkitekturbeslut och
 
 ## Struktur
 
+En enda Cloudflare Worker serverar allt: den byggda React-appen som
+statiska assets, chatbot-API:t och kartrutorna.
+
 ```
+wrangler.toml             Workerns config — allt i ett projekt
+worker/src/
+  index.js                Routing: API-vägar, tiles, resten till ASSETS
+  chat.js                 Claude tool use-loop, SSE-streaming
+  tools.js                search_poi_database / get_weather + web search
+  poi.js                  D1-queries
+  config.js               Instanskonfig, systemprompt, säsongslogik
+  tiles.js                Lantmäteriets WMTS med edge- och KV-cache
 schema/
   migrations/
-    0001_schema.sql       D1-schema — körs av deploy-scriptet, en gång
+    0001_schema.sql       Körs av deploy-scriptet, en gång
   seed-arctic-lodge.sql   Instans + POI:er för Arctic Lodge
   console/                Samma SQL utan kommentarer, för D1-konsolen
-workers/
-  api/                    Chatbot-API + D1-queries
-    src/index.js          Routing
-    src/chat.js           Claude tool use-loop, SSE-streaming
-    src/tools.js          search_poi_database / get_weather + Claude web search
-    src/poi.js            D1-queries
-    src/config.js         Instanskonfig + systemprompt + säsongslogik
-  tile-proxy/             Proxar Lantmäteriets WMTS-tiles med cache
 frontend/
-  src/App.jsx             Fristående sajt: karta + chatt
+  src/App.jsx             Karta + chatt, flikar på mobil
   src/widget.jsx          Inbäddningsbar widget (dist/widget.js)
-  src/components/Map.jsx  Leaflet + Lantmäteriet
-  src/components/Chat.jsx Chattwidget med SSE
-  src/config/arctic-lodge.js
+  src/components/         Map.jsx, Chat.jsx
 scripts/
-  setup-cloudflare.sh     Skapar D1 + KV + R2, kör migreringar och seed
-  deploy.sh               Deployar workers och Pages
   sql-for-console.py      Genererar de kommentarsfria SQL-filerna
 ```
 
 ## Snabbstart
 
 ```bash
-./scripts/setup-cloudflare.sh          # skapar resurser + seedar databasen
-cd workers/api
-npx wrangler secret put ANTHROPIC_API_KEY
-cd ../.. && ./scripts/deploy.sh        # deployar allt
+npm install
+npm run build          # bygger frontend till frontend/dist
+npm run deploy         # migrerar databasen och deployar workern
 ```
 
 ## API
@@ -49,6 +47,7 @@ cd ../.. && ./scripts/deploy.sh        # deployar allt
 | Metod | Väg | Beskrivning |
 |---|---|---|
 | GET | `/health` | Status + vilka bindings som finns |
+| GET | `/tiles/{z}/{x}/{y}.png` | Lantmäteriets kartrutor via cache |
 | GET | `/instans` | Instanskonfiguration och aktuell säsong |
 | GET | `/poi` | POI:er för kartan. Filter: `sasong`, `kategori`, `lamplig_for`, `svarighetsgrad`, `fritext` |
 | GET | `/poi/:slug` | Full POI med GPS-punkter, media och öppettider |
@@ -60,16 +59,23 @@ strömmar händelser: `text` (textdelta), `verktyg` (verktyg körs),
 `poi` (POI-id:n att markera på kartan), `kallor` (källhänvisningar från
 webbsökning — måste visas för gästen), `klar`, `fel`.
 
+Alla andra vägar serveras från `frontend/dist` — statiska filer direkt,
+okända vägar som `index.html` så att klientsidans routing fungerar.
+
 ## Lokal utveckling
 
 ```bash
-# 1. Lokal D1
-cd workers/api && npm install
-npm run db:migrate:local && npm run db:seed:local
+npm install
 cp .dev.vars.example .dev.vars      # lägg in din API-nyckel
-npm run dev
+npm run db:migrate:local && npm run db:seed:local
+npm run dev                         # bygger frontend och startar workern
+```
 
-# 2. Frontend mot den lokala workern
-cd ../../frontend && npm install
-VITE_API_URL=http://127.0.0.1:8787 npm run dev
+Sajt och API ligger på samma origin, så ingen CORS-konfiguration behövs
+för utveckling. Widgeten är undantaget — den körs på arcticlodge.nu och
+byggs med en absolut URL:
+
+```bash
+VITE_API_URL=https://waylo.<konto>.workers.dev \
+  npm --prefix frontend run build:widget
 ```

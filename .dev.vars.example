@@ -1,0 +1,2 @@
+# Kopiera till .dev.vars för lokal utveckling (.dev.vars är gitignorerad).
+ANTHROPIC_API_KEY = "sk-ant-..."
