@@ -1,7 +1,7 @@
 -- ============================================================
 --  TURISTCHATBOT — POI-databas
 --  Cloudflare D1 (SQLite) — kompatibel syntax
---  Kör: wrangler d1 execute waylo --file=schema/schema.sql
+--  Körs av: wrangler d1 migrations apply DB --remote (från workers/api/)
 -- ============================================================
 
 

@@ -74,8 +74,8 @@ sed -i.bak -E "s|^id = \".*\"|id = \"$KV_ID\"|" "$TILES_TOML"
 rm -f "$API_TOML.bak" "$TILES_TOML.bak"
 
 # --- 5. Schema + seed ------------------------------------------------
-info "Kör schema mot $DB_NAMN"
-$WRANGLER d1 execute "$DB_NAMN" --remote --file="$ROT/schema/schema.sql" --yes
+info "Kör migreringar mot $DB_NAMN"
+(cd "$ROT/workers/api" && $WRANGLER d1 migrations apply DB --remote)
 
 info "Kör seed-data för Arctic Lodge"
 $WRANGLER d1 execute "$DB_NAMN" --remote --file="$ROT/schema/seed-arctic-lodge.sql" --yes

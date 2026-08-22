@@ -31,7 +31,9 @@ Ny config + ny databas = ny instans för vilket område som helst.
 │       └── wrangler.toml   # Cloudflare-config inkl. D1-binding
 │
 ├── schema/
-│   └── schema.sql          # D1-kompatibelt SQLite-schema — kör detta först
+│   ├── migrations/         # Numrerade D1-migreringar, körs av deploy-scriptet
+│   │   └── 0001_schema.sql
+│   └── seed-arctic-lodge.sql
 │
 ├── frontend/               # React + Vite — kartvy + chatbot-widget
 │   └── src/
@@ -70,8 +72,8 @@ Ny config + ny databas = ny instans för vilket område som helst.
 # Skapa D1-databasen
 wrangler d1 create waylo
 
-# Kör schemat
-wrangler d1 execute waylo --file=schema/schema.sql
+# Kör schemat (migreringarna körs mot bindningen DB, inte databasnamnet)
+cd workers/api && wrangler d1 migrations apply DB --remote
 
 # Lägg in testdata för Arctic Lodge
 wrangler d1 execute waylo --file=schema/seed-arctic-lodge.sql
@@ -156,7 +158,7 @@ LANTMATERIET_TOKEN   # när avgiftsfri utgår 2026-12-31
 
 ## Databasen (D1 / SQLite)
 
-### Tabeller (se schema/schema.sql för komplett schema)
+### Tabeller (se schema/migrations/0001_schema.sql för komplett schema)
 
 - `instanser` — en rad per område/kund
 - `kategorier` — hierarkiska, flerspråkiga (JSON-kolumner)
@@ -461,7 +463,7 @@ export const config = {
 wrangler d1 create waylo-riksgransenturism
 
 # 2. Kör samma schema
-wrangler d1 execute waylo-riksgransenturism --file=schema/schema.sql
+cd workers/api && wrangler d1 migrations apply DB --remote
 
 # 3. Ny seed-fil med lokala POI:er
 wrangler d1 execute waylo-riksgransenturism --file=schema/seed-riksgransenturism.sql

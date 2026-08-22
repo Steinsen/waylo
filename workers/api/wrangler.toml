@@ -10,6 +10,8 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "waylo"
 database_id = "DITT-D1-ID-HÄR"
+# Numrerade migreringar körs av deploy-scriptet, en gång var.
+migrations_dir = "../../schema/migrations"
 
 # --- R2 (bilder + GPX) ------------------------------------------------
 [[r2_buckets]]

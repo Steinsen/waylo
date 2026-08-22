@@ -1,7 +1,7 @@
 -- ============================================================
 --  WayLo — Seed-data för instansen "Arctic Lodge Katterjokk"
---  Kör: wrangler d1 execute waylo --file=schema/seed-arctic-lodge.sql
---  Kräver att schema/schema.sql körts först.
+--  Kör: npm run db:seed   (från workers/api/)
+--  Kräver att migreringarna körts först.
 -- ============================================================
 
 INSERT OR IGNORE INTO instanser (id, slug, namn, beskrivning, center_lat, center_lng, sprak)

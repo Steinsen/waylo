@@ -11,7 +11,8 @@ Se [`CLAUDE.md`](CLAUDE.md) för arkitekturbeslut och
 
 ```
 schema/
-  schema.sql              D1-schema (SQLite) — kör detta först
+  migrations/
+    0001_schema.sql       D1-schema — körs av deploy-scriptet, en gång
   seed-arctic-lodge.sql   Instans + POI:er för Arctic Lodge
 workers/
   api/                    Chatbot-API + D1-queries
@@ -62,7 +63,7 @@ webbsökning — måste visas för gästen), `klar`, `fel`.
 ```bash
 # 1. Lokal D1
 cd workers/api && npm install
-npm run db:schema:local && npm run db:seed:local
+npm run db:migrate:local && npm run db:seed:local
 cp .dev.vars.example .dev.vars      # lägg in din API-nyckel
 npm run dev
 
