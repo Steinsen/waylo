@@ -13,8 +13,10 @@
  * Tokenen cachas i KV tills den går ut, så vi inte växlar in en ny
  * för varje kartruta.
  *
- * Använder tjänsten HTTP Basic istället för OAuth2 räcker det att
- * sätta LANTMATERIET_AUTH = "basic" — samma två hemligheter används.
+ * maps.lantmateriet.se svarar med en nginx-401, alltså HTTP Basic på
+ * webbservernivå — därför är "basic" förval. Tjänster bakom deras
+ * API-gateway vill istället ha OAuth2: sätt LANTMATERIET_AUTH =
+ * "oauth2" så växlas uppgifterna in mot en token som cachas i KV.
  */
 
 const TOKEN_URL = 'https://apimanager.lantmateriet.se/oauth2/token';
@@ -36,14 +38,25 @@ export async function authHeaders(env) {
   const hemlighet = env.LANTMATERIET_CLIENT_SECRET;
   if (!id || !hemlighet) return {};
 
-  const uppgifter = btoa(`${id}:${hemlighet}`);
+  const uppgifter = base64(`${id}:${hemlighet}`);
 
-  if ((env.LANTMATERIET_AUTH || 'oauth2').toLowerCase() === 'basic') {
+  if ((env.LANTMATERIET_AUTH || 'basic').toLowerCase() === 'basic') {
     return { Authorization: `Basic ${uppgifter}` };
   }
 
   const token = await hamtaToken(env, uppgifter);
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
+ * btoa() kastar på tecken utanför Latin-1, så ett lösenord med å ä ö
+ * hade fällt hela inloggningen. Koda som UTF-8 först.
+ */
+function base64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binärt = '';
+  for (const b of bytes) binärt += String.fromCharCode(b);
+  return btoa(binärt);
 }
 
 /** Växlar in client credentials mot en token, med KV som cache. */
@@ -87,7 +100,7 @@ export async function authStatus(env) {
     LANTMATERIET_TOKEN: Boolean(env.LANTMATERIET_TOKEN),
     LANTMATERIET_CLIENT_ID: Boolean(env.LANTMATERIET_CLIENT_ID),
     LANTMATERIET_CLIENT_SECRET: Boolean(env.LANTMATERIET_CLIENT_SECRET),
-    metod: env.LANTMATERIET_AUTH || 'oauth2',
+    metod: env.LANTMATERIET_AUTH || 'basic',
   };
   const headers = await authHeaders(env);
   return {

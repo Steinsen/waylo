@@ -45,21 +45,25 @@ stycken:
 | Secret | Var den kommer ifrån |
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
-| `LANTMATERIET_CLIENT_ID` | opendata.lantmateriet.se |
-| `LANTMATERIET_CLIENT_SECRET` | opendata.lantmateriet.se |
+| `LANTMATERIET_CLIENT_ID` | ditt Lantmäteriet-konto (e-post) |
+| `LANTMATERIET_CLIENT_SECRET` | lösenordet till samma konto |
 
 Chatten behöver bara den första. De två andra är för kartrutorna:
 registrera en klient på
 [opendata.lantmateriet.se](https://opendata.lantmateriet.se/) och
 prenumerera på *Topografisk webbkarta Visning, cache*.
 
-Workern växlar in dem mot en tidsbegränsad token via OAuth2 och cachar
-den i KV tills den går ut, så inväxlingen sker en gång — inte per
-kartruta. Svarar tjänsten `401` trots rätt uppgifter använder den
-troligen HTTP Basic istället; sätt då `LANTMATERIET_AUTH = "basic"` i
-`wrangler.toml`, samma två hemligheter gäller. Har du redan en färdig
-token räcker `LANTMATERIET_TOKEN` — den har företräde och hoppar över
-inväxlingen.
+> **Lägg in båda som `Secret`, inte `Text`.** `wrangler deploy` skriver
+> över workerns textvariabler med `[vars]` ur `wrangler.toml`, så en
+> Text-variabel som inte står i konfigfilen raderas vid nästa bygge.
+> Secrets rörs aldrig av en deploy.
+
+`maps.lantmateriet.se` använder HTTP Basic, vilket är förvalet. Ligger
+tjänsten du pekar på bakom deras API-gateway vill den istället ha
+OAuth2 — sätt `LANTMATERIET_AUTH = "oauth2"` i `wrangler.toml`, så
+växlas uppgifterna in mot en tidsbegränsad token som cachas i KV. Har
+du redan en färdig token räcker `LANTMATERIET_TOKEN`; den har företräde
+och hoppar över inloggningen helt.
 
 Felsökning av kartrutorna:
 
