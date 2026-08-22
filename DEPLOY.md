@@ -63,9 +63,18 @@ Migreringarna skapar tabellerna men lägger inte in någon data. Seeden
 är instansspecifik (Arctic Lodges POI:er), så den ska inte köras
 automatiskt för varje ny databas.
 
-Öppna D1 → `waylo` → **Console** i dashboarden, klistra in innehållet i
-`schema/seed-arctic-lodge.sql` och kör. Den använder `INSERT OR IGNORE`
-rakt igenom, så det gör ingen skada att köra den två gånger.
+Öppna D1 → `waylo` → **Console** i dashboarden och klistra in innehållet
+i **`schema/seed-arctic-lodge.console.sql`**. Den använder
+`INSERT OR IGNORE` rakt igenom, så det gör ingen skada att köra den två
+gånger.
+
+> Använd `.console.sql`-varianten, inte `seed-arctic-lodge.sql`.
+> D1-konsolen delar inklistrad SQL på semikolon och kör varje bit som en
+> egen query — bitar som bara innehåller kommentarer blir tomma och
+> avvisas med *"Requests without any query are not supported"*.
+> `.console.sql` är samma data utan kommentarer och tomrader, genererad
+> med `./scripts/seed-for-console.sh`. Ändrar du seed-filen, kör om
+> scriptet.
 
 ### 6. Verifiera
 

@@ -14,6 +14,8 @@ schema/
   migrations/
     0001_schema.sql       D1-schema — körs av deploy-scriptet, en gång
   seed-arctic-lodge.sql   Instans + POI:er för Arctic Lodge
+  seed-arctic-lodge.console.sql
+                          Samma data utan kommentarer, för D1-konsolen
 workers/
   api/                    Chatbot-API + D1-queries
     src/index.js          Routing
@@ -29,8 +31,9 @@ frontend/
   src/components/Chat.jsx Chattwidget med SSE
   src/config/arctic-lodge.js
 scripts/
-  setup-cloudflare.sh     Skapar D1 + KV + R2, kör schema och seed
+  setup-cloudflare.sh     Skapar D1 + KV + R2, kör migreringar och seed
   deploy.sh               Deployar workers och Pages
+  seed-for-console.sh     Genererar den kommentarsfria seed-filen
 ```
 
 ## Snabbstart
