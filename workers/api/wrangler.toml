@@ -4,12 +4,10 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 # --- D1 ---------------------------------------------------------------
-# database_id fylls i av scripts/setup-cloudflare.sh (eller manuellt efter
-# `wrangler d1 create waylo`).
 [[d1_databases]]
 binding = "DB"
 database_name = "waylo"
-database_id = "DITT-D1-ID-HÄR"
+database_id = "4f8f8f68-ac34-4d34-a108-6de70fbcb873"
 # Numrerade migreringar körs av deploy-scriptet, en gång var.
 migrations_dir = "../../schema/migrations"
 
@@ -21,7 +19,7 @@ bucket_name = "waylo-media"
 # --- KV (cache) -------------------------------------------------------
 [[kv_namespaces]]
 binding = "CACHE"
-id = "DITT-KV-ID-HÄR"
+id = "5b7afa45e2784be7b0e63e1a1f6df72a"
 
 [vars]
 ENVIRONMENT = "production"

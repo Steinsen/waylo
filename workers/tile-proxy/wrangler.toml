@@ -5,7 +5,7 @@ compatibility_date = "2024-09-23"
 # Samma KV-namespace som api-workern (id fylls i av setup-scriptet).
 [[kv_namespaces]]
 binding = "CACHE"
-id = "DITT-KV-ID-HÄR"
+id = "5b7afa45e2784be7b0e63e1a1f6df72a"
 
 [vars]
 ENVIRONMENT = "production"
