@@ -63,18 +63,29 @@ Migreringarna skapar tabellerna men lägger inte in någon data. Seeden
 är instansspecifik (Arctic Lodges POI:er), så den ska inte köras
 automatiskt för varje ny databas.
 
-Öppna D1 → `waylo` → **Console** i dashboarden och klistra in innehållet
-i **`schema/seed-arctic-lodge.console.sql`**. Den använder
-`INSERT OR IGNORE` rakt igenom, så det gör ingen skada att köra den två
-gånger.
+Migreringarna skapar tabellerna automatiskt vid deploy. Har bygget inte
+gått igenom än kan du skapa dem direkt i konsolen istället — D1 →
+`waylo` → **Console** i dashboarden:
 
-> Använd `.console.sql`-varianten, inte `seed-arctic-lodge.sql`.
-> D1-konsolen delar inklistrad SQL på semikolon och kör varje bit som en
-> egen query — bitar som bara innehåller kommentarer blir tomma och
-> avvisas med *"Requests without any query are not supported"*.
-> `.console.sql` är samma data utan kommentarer och tomrader, genererad
-> med `./scripts/seed-for-console.sh`. Ändrar du seed-filen, kör om
-> scriptet.
+1. Klistra in **`schema/console/0001_schema.console.sql`** — skapar de
+   nio tabellerna och de globala kategorierna.
+2. Klistra in **`schema/console/seed-arctic-lodge.console.sql`** —
+   instansen och dess POI:er.
+
+Båda är idempotenta (`CREATE TABLE IF NOT EXISTS` och
+`INSERT OR IGNORE`), så det gör ingen skada att köra dem två gånger.
+Kör du schemat för hand vet inte `d1_migrations` om det — nästa bygge
+applicerar migreringen ändå, konstaterar att allt redan finns och
+bokför den. Ingen konflikt.
+
+> **Använd filerna i `schema/console/`, inte originalen.** D1-konsolen
+> delar inklistrad SQL på semikolon och kör varje bit som en egen query.
+> Bitar som bara innehåller kommentarer blir tomma och avvisas med
+> *"Requests without any query are not supported"*. Filerna i
+> `schema/console/` är samma SQL utan kommentarer, genererad med
+> `./scripts/sql-for-console.py <fil>`. Får du ett enstaka sådant fel
+> allra sist är det den tomma raden efter sista semikolonet — allt
+> ovanför har körts.
 
 ### 6. Verifiera
 
