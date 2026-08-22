@@ -59,6 +59,13 @@ ALLOWED_ORIGINS = "https://arcticlodge.nu,https://www.arcticlodge.nu"
 # Lantmäteriets avgiftsfria topowebb-ccby. Byt när den utgår 2026-12-31.
 WMTS_URL = ""
 
-# Hemlighet (sätts i dashboarden eller med `wrangler secret put`):
+# Inloggning mot Lantmäteriet: "oauth2" (default) växlar in client
+# credentials mot en tidsbegränsad token som cachas i KV. Svarar
+# tjänsten med 401 kan "basic" prövas — samma två hemligheter.
+LANTMATERIET_AUTH = "oauth2"
+
+# Hemligheter (sätts i dashboarden eller med `wrangler secret put`,
+# ALDRIG här):
 #   ANTHROPIC_API_KEY
-#   LANTMATERIET_TOKEN  (först när Lantmäteriets avgiftsfria tjänst utgår)
+#   LANTMATERIET_CLIENT_ID
+#   LANTMATERIET_CLIENT_SECRET

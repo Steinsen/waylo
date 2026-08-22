@@ -37,10 +37,37 @@ Build-kommandot är `npm run build`, som bygger frontend till
 `frontend/dist`. Migreringarna körs före varje deploy, spåras i
 `d1_migrations` och appliceras exakt en gång var.
 
-### 3. Lägg in API-nyckeln
+### 3. Lägg in hemligheterna
 
-`waylo` → Settings → Variables and Secrets → Add → **Secret**:
-`ANTHROPIC_API_KEY`. Det är den enda nyckeln.
+`waylo` → Settings → Variables and Secrets → Add → **Secret**. Tre
+stycken:
+
+| Secret | Var den kommer ifrån |
+|---|---|
+| `ANTHROPIC_API_KEY` | console.anthropic.com |
+| `LANTMATERIET_CLIENT_ID` | opendata.lantmateriet.se |
+| `LANTMATERIET_CLIENT_SECRET` | opendata.lantmateriet.se |
+
+Chatten behöver bara den första. De två andra är för kartrutorna:
+registrera en klient på
+[opendata.lantmateriet.se](https://opendata.lantmateriet.se/) och
+prenumerera på *Topografisk webbkarta Visning, cache*.
+
+Workern växlar in dem mot en tidsbegränsad token via OAuth2 och cachar
+den i KV tills den går ut, så inväxlingen sker en gång — inte per
+kartruta. Svarar tjänsten `401` trots rätt uppgifter använder den
+troligen HTTP Basic istället; sätt då `LANTMATERIET_AUTH = "basic"` i
+`wrangler.toml`, samma två hemligheter gäller. Har du redan en färdig
+token räcker `LANTMATERIET_TOKEN` — den har företräde och hoppar över
+inväxlingen.
+
+Felsökning av kartrutorna:
+
+- `/tiles/capabilities` visar under `auth` om inloggningen lyckades och
+  vilken headertyp som skickades, plus vilka `TileMatrixSet`, lager och
+  format tjänsten erbjuder — bredvid mallen vi använder. `?raw` ger XML.
+- `/tiles/8/143/57.png` svarar `502` med `X-Upstream-Status` när
+  Lantmäteriet nekar, med deras felmeddelande i kroppen.
 
 ### 4. Seeda instansdatan — en gång
 

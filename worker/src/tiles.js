@@ -13,6 +13,8 @@
  * LAYER-URL och skicka med: Authorization: Bearer ${env.LANTMATERIET_TOKEN}
  */
 
+import { authHeaders, authStatus } from './lantmateriet.js';
+
 const CACHE_TTL = 86400; // 24h
 const MAX_ZOOM = 14;
 
@@ -79,8 +81,7 @@ export async function hanteraTile(request, env, ctx, cors) {
 
   if (mall.includes('{token}') && !token) {
     return new Response(
-      'LANTMATERIET_TOKEN saknas. Hämta en gratis token på ' +
-        'opendata.lantmateriet.se och lägg in den som secret.',
+      'Mallen har {token} men LANTMATERIET_TOKEN är inte satt.',
       { status: 503, headers: { ...cors, 'X-Upstream-Status': 'ingen-token' } }
     );
   }
@@ -91,12 +92,9 @@ export async function hanteraTile(request, env, ctx, cors) {
     .replaceAll('{y}', y)
     .replaceAll('{token}', token);
 
-  // Token i sökvägen är Lantmäteriets eget mönster. Bearer-varianten
-  // finns kvar för endpoints som vill ha den så.
-  const headers = {};
-  if (token && !mall.includes('{token}')) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  // Token i sökvägen är ett av Lantmäteriets mönster; annars går
+  // inloggningen via Authorization-headern.
+  const headers = mall.includes('{token}') ? {} : await authHeaders(env);
 
   const response = await fetch(lmUrl, { headers });
   if (!response.ok) {
@@ -142,12 +140,8 @@ async function hamtaCapabilities(env, cors, ra) {
     (env.WMTS_CAPABILITIES_URL || WMTS_BAS) +
     '?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0';
 
-  const headers = {};
-  if (env.LANTMATERIET_TOKEN) {
-    headers.Authorization = `Bearer ${env.LANTMATERIET_TOKEN}`;
-  }
-
-  const res = await fetch(capUrl, { headers });
+  const auth = await authStatus(env);
+  const res = await fetch(capUrl, { headers: await authHeaders(env) });
   const xml = await res.text();
 
   if (ra) {
@@ -159,7 +153,7 @@ async function hamtaCapabilities(env, cors, ra) {
 
   if (!res.ok) {
     return Response.json(
-      { url: capUrl, status: res.status, svar: xml.slice(0, 500) },
+      { url: capUrl, status: res.status, auth, svar: xml.slice(0, 500) },
       { status: 502, headers: cors }
     );
   }
@@ -171,6 +165,7 @@ async function hamtaCapabilities(env, cors, ra) {
     {
       url: capUrl,
       status: res.status,
+      auth,
       storlek_kb: Math.round(xml.length / 1024),
       identifierare: taggar(xml, 'Identifier').slice(0, 40),
       format: taggar(xml, 'Format'),
