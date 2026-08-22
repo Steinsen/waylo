@@ -74,6 +74,14 @@ async function route(request, env, url, ctx, cors) {
       db_ok = true;
     } catch { /* rapporteras som db_ok: false */ }
 
+    // Namnen på de textvariabler och secrets workern faktiskt ser.
+    // Bara namn, aldrig värden — gör felstavade eller osparade
+    // secrets synliga utan att läcka något.
+    const synliga_namn = Object.entries(env)
+      .filter(([, v]) => typeof v === 'string')
+      .map(([k]) => k)
+      .sort();
+
     return Response.json({
       tjanst: 'waylo',
       instans_id,
@@ -81,6 +89,7 @@ async function route(request, env, url, ctx, cors) {
       sasong: aktuellSasong(),
       db_ok,
       bindings,
+      synliga_namn,
     });
   }
 
