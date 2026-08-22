@@ -16,13 +16,17 @@
 const CACHE_TTL = 86400; // 24h
 const MAX_ZOOM = 14;
 
-// Lantmäteriets avgiftsfria WMTS. Kan överridas med WMTS_URL i
-// wrangler.toml — {z}/{x}/{y} ersätts per tile.
+// Lantmäteriets öppna WMTS. Kräver en token som hämtas gratis via
+// opendata.lantmateriet.se — den sitter i sökvägen, inte som header.
+//
+// Sätt WMTS_URL i wrangler.toml för att peka någon annanstans.
+// Platshållarna {z} {x} {y} ersätts per tile, {token} med
+// LANTMATERIET_TOKEN. Saknas {token} i URL:en men token finns skickas
+// den istället som Authorization: Bearer, för endpoints som vill ha
+// det så.
 const STANDARD_WMTS =
-  'https://maps.lantmateriet.se/open/topowebb-ccby/v1/wmts' +
-  '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
-  '&LAYER=topowebb&STYLE=default&TILEMATRIXSET=3857' +
-  '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png';
+  'https://api.lantmateriet.se/open/topowebb-ccby/v1/wmts' +
+  '/token/{token}/1.0.0/topowebb/default/3857/{z}/{y}/{x}.png';
 
 /**
  * Hanterar GET /tiles/{z}/{x}/{y}.png. Returnerar null om vägen inte
@@ -59,19 +63,44 @@ export async function hanteraTile(request, env, ctx, cors) {
   }
 
   // 3) Lantmäteriet
-  const lmUrl = (env.WMTS_URL || STANDARD_WMTS)
-    .replace('{z}', z)
-    .replace('{x}', x)
-    .replace('{y}', y);
+  const mall = env.WMTS_URL || STANDARD_WMTS;
+  const token = env.LANTMATERIET_TOKEN || '';
 
+  if (mall.includes('{token}') && !token) {
+    return new Response(
+      'LANTMATERIET_TOKEN saknas. Hämta en gratis token på ' +
+        'opendata.lantmateriet.se och lägg in den som secret.',
+      { status: 503, headers: { ...cors, 'X-Upstream-Status': 'ingen-token' } }
+    );
+  }
+
+  const lmUrl = mall
+    .replaceAll('{z}', z)
+    .replaceAll('{x}', x)
+    .replaceAll('{y}', y)
+    .replaceAll('{token}', token);
+
+  // Token i sökvägen är Lantmäteriets eget mönster. Bearer-varianten
+  // finns kvar för endpoints som vill ha den så.
   const headers = {};
-  if (env.LANTMATERIET_TOKEN) {
-    headers.Authorization = `Bearer ${env.LANTMATERIET_TOKEN}`;
+  if (token && !mall.includes('{token}')) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(lmUrl, { headers });
   if (!response.ok) {
-    return new Response('Tile not found', { status: 404, headers: cors });
+    // Svälj inte vad upstream sa — utan det går felet inte att felsöka.
+    const detalj = (await response.text().catch(() => '')).slice(0, 200);
+    console.error(
+      `Tile ${z}/${x}/${y}: upstream ${response.status} ${response.statusText} ${detalj}`
+    );
+    return new Response(
+      `Upstream svarade ${response.status}. ${detalj}`,
+      {
+        status: 502,
+        headers: { ...cors, 'X-Upstream-Status': String(response.status) },
+      }
+    );
   }
 
   const buffer = await response.arrayBuffer();
