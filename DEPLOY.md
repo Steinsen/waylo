@@ -65,6 +65,12 @@ nästa bygge bokför migreringen utan att göra om något.
 karta och chatt. Sen `/health`, som ska visa `db_ok: true` och alla fem
 bindings som `true`.
 
+> Får du sidan men inget svar på `/health`, och ingen karta, betyder det
+> att assets-lagret svarar på allt och att workern aldrig körs. Det
+> styrs av `run_worker_first` i `wrangler.toml` — listan över vägar som
+> ska gå till workern före assets. Lägger du till en ny API-väg måste
+> den in där också, annars får den `index.html` istället.
+
 ## Alternativ: deploy från din egen maskin
 
 ```bash

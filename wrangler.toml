@@ -15,6 +15,18 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./frontend/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+# Utan detta tar assets-lagret hand om allt som inte är en fil och
+# svarar med index.html — även /health och /tiles, så workern körs
+# aldrig. De här vägarna går till workern först; allt annat till assets.
+run_worker_first = [
+  "/health",
+  "/instans",
+  "/poi",
+  "/poi/*",
+  "/kategorier",
+  "/chat",
+  "/tiles/*",
+]
 
 # --- D1 ---------------------------------------------------------------
 [[d1_databases]]
