@@ -28,21 +28,21 @@ Du behöver också:
 
 Scriptet är idempotent och gör följande:
 
-1. `wrangler d1 create turistbot` (hoppas över om den finns)
-2. `wrangler kv namespace create turistbot-cache`
-3. `wrangler r2 bucket create turistbot-media`
+1. `wrangler d1 create waylo` (hoppas över om den finns)
+2. `wrangler kv namespace create waylo-cache`
+3. `wrangler r2 bucket create waylo-media`
 4. Skriver in `database_id` och KV-`id` i båda `wrangler.toml`
 5. Kör `schema/schema.sql` och `schema/seed-arctic-lodge.sql`
 
 Vill du göra det för hand:
 
 ```bash
-wrangler d1 create turistbot
-wrangler kv namespace create turistbot-cache
-wrangler r2 bucket create turistbot-media
+wrangler d1 create waylo
+wrangler kv namespace create waylo-cache
+wrangler r2 bucket create waylo-media
 # klistra in id:n i workers/api/wrangler.toml och workers/tile-proxy/wrangler.toml
-wrangler d1 execute turistbot --remote --file=schema/schema.sql
-wrangler d1 execute turistbot --remote --file=schema/seed-arctic-lodge.sql
+wrangler d1 execute waylo --remote --file=schema/schema.sql
+wrangler d1 execute waylo --remote --file=schema/seed-arctic-lodge.sql
 ```
 
 ## Steg 2 — Hemligheter
@@ -89,9 +89,9 @@ Kopplar du repot i Cloudflare byggs och deployas allt vid varje push till
 
 | Projekt | Typ | Root directory | Build watch path |
 |---|---|---|---|
-| `turistbot-api` | Worker | `workers/api` | `workers/api/*` |
-| `turistbot-tiles` | Worker | `workers/tile-proxy` | `workers/tile-proxy/*` |
-| `turistbot` | Pages | `frontend` | `frontend/*` |
+| `waylo` | Worker | `workers/api` | `workers/api/*` |
+| `waylo-tiles` | Worker | `workers/tile-proxy` | `workers/tile-proxy/*` |
+| `waylo-web` | Pages | `frontend` | `frontend/*` |
 
 Workers använder standardkommandona (`npm install` + `npx wrangler deploy`).
 För Pages: build-kommando `npm run build`, output-katalog `dist`.
@@ -119,10 +119,10 @@ Settings → Domains & Routes:
 
 | Värdnamn | Pekar på |
 |---|---|
-| `api.arcticlodge.nu` | Worker `turistbot-api` |
-| `tiles.arcticlodge.nu` | Worker `turistbot-tiles` |
-| `chat.arcticlodge.nu` | Pages-projektet `turistbot` |
-| `media.arcticlodge.nu` | R2-bucketen `turistbot-media` (Public bucket → Custom domain) |
+| `api.arcticlodge.nu` | Worker `waylo` |
+| `tiles.arcticlodge.nu` | Worker `waylo-tiles` |
+| `chat.arcticlodge.nu` | Pages-projektet `waylo` |
+| `media.arcticlodge.nu` | R2-bucketen `waylo-media` (Public bucket → Custom domain) |
 
 Byter du domäner: uppdatera `ALLOWED_ORIGINS` och `MEDIA_BASE_URL` i
 `workers/api/wrangler.toml` samt `api_url`/`tiles_url` i
@@ -135,10 +135,10 @@ footer). Ingen annan kod behövs i WordPress:
 
 ```html
 <script src="https://chat.arcticlodge.nu/widget.js"></script>
-<div id="turistbot"></div>
+<div id="waylo"></div>
 ```
 
-Widgeten monterar sig själv i `#turistbot`, tar med sin egen CSS och
+Widgeten monterar sig själv i `#waylo`, tar med sin egen CSS och
 pratar direkt med `api.arcticlodge.nu`.
 
 ## Ladda upp media till R2
@@ -148,7 +148,7 @@ Bilder och GPX-filer lagras med nyckelmönstret
 
 ```bash
 wrangler r2 object put \
-  turistbot-media/arctic-lodge/midnattssol-katterjokk/utsikt.jpg \
+  waylo-media/arctic-lodge/midnattssol-katterjokk/utsikt.jpg \
   --file=./utsikt.jpg --content-type=image/jpeg
 ```
 
@@ -166,9 +166,9 @@ VALUES ('poi-midnattssol-katterjokk', 'bild',
 
 ```bash
 # 1. Ny databas + schema + egen seed-fil
-wrangler d1 create turistbot-riksgransenturism
-wrangler d1 execute turistbot-riksgransenturism --remote --file=schema/schema.sql
-wrangler d1 execute turistbot-riksgransenturism --remote --file=schema/seed-riksgransenturism.sql
+wrangler d1 create waylo-riksgransenturism
+wrangler d1 execute waylo-riksgransenturism --remote --file=schema/schema.sql
+wrangler d1 execute waylo-riksgransenturism --remote --file=schema/seed-riksgransenturism.sql
 
 # 2. Kopiera workers/api/wrangler.toml → ny name, database_id och INSTANS_ID
 # 3. Ny config-fil i frontend/src/config/

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build && vite build --config vite.widget.config.js",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name=turistbot"
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=waylo-web"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

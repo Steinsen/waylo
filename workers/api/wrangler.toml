@@ -1,20 +1,20 @@
-name = "turistbot-api"
+name = "waylo"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 # --- D1 ---------------------------------------------------------------
 # database_id fylls i av scripts/setup-cloudflare.sh (eller manuellt efter
-# `wrangler d1 create turistbot`).
+# `wrangler d1 create waylo`).
 [[d1_databases]]
 binding = "DB"
-database_name = "turistbot"
+database_name = "waylo"
 database_id = "DITT-D1-ID-HÄR"
 
 # --- R2 (bilder + GPX) ------------------------------------------------
 [[r2_buckets]]
 binding = "MEDIA"
-bucket_name = "turistbot-media"
+bucket_name = "waylo-media"
 
 # --- KV (cache) -------------------------------------------------------
 [[kv_namespaces]]

@@ -1,5 +1,5 @@
 {
-  "name": "turistbot-api",
+  "name": "waylo-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,10 +7,10 @@
     "dev": "wrangler dev",
     "dev:local": "wrangler dev --local",
     "deploy": "wrangler deploy",
-    "db:schema": "wrangler d1 execute turistbot --remote --file=../../schema/schema.sql",
-    "db:seed": "wrangler d1 execute turistbot --remote --file=../../schema/seed-arctic-lodge.sql",
-    "db:schema:local": "wrangler d1 execute turistbot --local --file=../../schema/schema.sql",
-    "db:seed:local": "wrangler d1 execute turistbot --local --file=../../schema/seed-arctic-lodge.sql"
+    "db:schema": "wrangler d1 execute waylo --remote --file=../../schema/schema.sql",
+    "db:seed": "wrangler d1 execute waylo --remote --file=../../schema/seed-arctic-lodge.sql",
+    "db:schema:local": "wrangler d1 execute waylo --local --file=../../schema/schema.sql",
+    "db:seed:local": "wrangler d1 execute waylo --local --file=../../schema/seed-arctic-lodge.sql"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0"

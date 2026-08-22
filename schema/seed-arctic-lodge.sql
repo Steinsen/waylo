@@ -1,6 +1,6 @@
 -- ============================================================
 --  WayLo — Seed-data för instansen "Arctic Lodge Katterjokk"
---  Kör: wrangler d1 execute turistbot --file=schema/seed-arctic-lodge.sql
+--  Kör: wrangler d1 execute waylo --file=schema/seed-arctic-lodge.sql
 --  Kräver att schema/schema.sql körts först.
 -- ============================================================
 

@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-INSTANS="${1:-turistbot}"
+INSTANS="${1:-waylo}"
 DB_NAMN="$INSTANS"
 BUCKET_NAMN="${INSTANS}-media"
 KV_NAMN="${INSTANS}-cache"

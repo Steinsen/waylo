@@ -68,20 +68,20 @@ Ny config + ny databas = ny instans för vilket område som helst.
 ### Steg 1 — D1-databas (börja här)
 ```bash
 # Skapa D1-databasen
-wrangler d1 create turistbot
+wrangler d1 create waylo
 
 # Kör schemat
-wrangler d1 execute turistbot --file=schema/schema.sql
+wrangler d1 execute waylo --file=schema/schema.sql
 
 # Lägg in testdata för Arctic Lodge
-wrangler d1 execute turistbot --file=schema/seed-arctic-lodge.sql
+wrangler d1 execute waylo --file=schema/seed-arctic-lodge.sql
 ```
 
 Spara databas-ID från output — läggs in i `wrangler.toml`.
 
 ### Steg 2 — R2-bucket för media
 ```bash
-wrangler r2 bucket create turistbot-media
+wrangler r2 bucket create waylo-media
 ```
 
 Bilder och GPX-filer laddas upp hit. URL-mönster:
@@ -113,7 +113,7 @@ wrangler pages deploy dist
 Bäddas in på arcticlodge.nu via:
 ```html
 <script src="https://chat.arcticlodge.nu/widget.js"></script>
-<div id="turistbot"></div>
+<div id="waylo"></div>
 ```
 
 ### Steg 5 — WordPress-integration
@@ -125,18 +125,18 @@ Ingen annan kod i WordPress.
 ## wrangler.toml (api worker)
 
 ```toml
-name = "turistbot-api"
+name = "waylo"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
 [[d1_databases]]
 binding = "DB"          # används i kod som: env.DB.prepare(...)
-database_name = "turistbot"
+database_name = "waylo"
 database_id = "DITT-D1-ID-HÄR"
 
 [[r2_buckets]]
 binding = "MEDIA"
-bucket_name = "turistbot-media"
+bucket_name = "waylo-media"
 
 [[kv_namespaces]]
 binding = "CACHE"
@@ -329,7 +329,7 @@ export async function executeTool(name, input, env, instans_id) {
       const res = await fetch(
         'https://api.met.no/weatherapi/locationforecast/2.0/compact' +
         '?lat=68.356&lon=18.823',
-        { headers: { 'User-Agent': 'turistbot/1.0 info@arcticlodge.nu' } }
+        { headers: { 'User-Agent': 'waylo/1.0 info@arcticlodge.nu' } }
       );
       const data = await res.json();
       const now = data.properties.timeseries[0].data.instant.details;
@@ -470,13 +470,13 @@ export const config = {
 
 ```bash
 # 1. Ny D1-databas
-wrangler d1 create turistbot-riksgransenturism
+wrangler d1 create waylo-riksgransenturism
 
 # 2. Kör samma schema
-wrangler d1 execute turistbot-riksgransenturism --file=schema/schema.sql
+wrangler d1 execute waylo-riksgransenturism --file=schema/schema.sql
 
 # 3. Ny seed-fil med lokala POI:er
-wrangler d1 execute turistbot-riksgransenturism --file=schema/seed-riksgransenturism.sql
+wrangler d1 execute waylo-riksgransenturism --file=schema/seed-riksgransenturism.sql
 
 # 4. Ny Worker med ny wrangler.toml (annan D1-binding)
 # 5. Ny config-fil i frontend/src/config/

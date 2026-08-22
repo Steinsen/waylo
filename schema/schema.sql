@@ -1,7 +1,7 @@
 -- ============================================================
 --  TURISTCHATBOT — POI-databas
 --  Cloudflare D1 (SQLite) — kompatibel syntax
---  Kör: wrangler d1 execute turistbot --file=schema/schema.sql
+--  Kör: wrangler d1 execute waylo --file=schema/schema.sql
 -- ============================================================
 
 

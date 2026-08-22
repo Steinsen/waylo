@@ -30,7 +30,7 @@ deploy_frontend() {
   cd "$ROT/frontend"
   npm install --silent
   npm run build
-  npx wrangler pages deploy dist --project-name=turistbot
+  npx wrangler pages deploy dist --project-name=waylo-web
 }
 
 case "$MAL" in
