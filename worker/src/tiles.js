@@ -40,13 +40,17 @@ function standardWmts(lager) {
 // Norska Kartverket — gratis och utan inloggning. Deras webmercator
 // är samma rutnät som Lantmäteriets 3857, så rutorna passar ihop.
 // Lager: topo, topograatone, toporaster (turkart), sjokartraster.
+//
+// De erbjuder ingen ResourceURL-mall, så KVP är enda vägen. Och deras
+// TileMatrix-identifierare är nollutfyllda tvåsiffriga — 08, inte 8 —
+// därför {z2} istället för {z}.
 const KARTVERKET_BAS = 'https://cache.kartverket.no/v1/service';
 
 function standardKartverket(lager) {
   return (
     `${KARTVERKET_BAS}?service=WMTS&request=GetTile&version=1.0.0` +
     `&layer=${lager}&style=default&tilematrixset=webmercator` +
-    '&tilematrix={z}&tilerow={y}&tilecol={x}&format=image/png'
+    '&tilematrix={z2}&tilerow={y}&tilecol={x}&format=image/png'
   );
 }
 
@@ -140,6 +144,8 @@ export async function hanteraTile(request, env, ctx, cors) {
     }
 
     const upstreamUrl = mall
+      // {z2} före {z}, annars äter den senare upp inledningen
+      .replaceAll('{z2}', String(z).padStart(2, '0'))
       .replaceAll('{z}', z)
       .replaceAll('{x}', x)
       .replaceAll('{y}', y)

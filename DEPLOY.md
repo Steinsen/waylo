@@ -68,8 +68,20 @@ och hoppar över inloggningen helt.
 Kartan hämtar svenska rutor från Lantmäteriet och faller tillbaka på
 norska Kartverket där Lantmäteriet saknar täckning — Riksgränsen ligger
 på gränsen, så norska fjällen syns bara tack vare det. Kartverket är
-gratis och kräver ingen inloggning. Lager styrs av `KARTVERKET_LAGER`:
-`topo`, `topograatone`, `toporaster` (turkart) eller `sjokartraster`.
+gratis och kräver ingen inloggning — inget behöver sättas. Lager styrs
+av `KARTVERKET_LAGER`: `topo`, `topograatone`, `toporaster` (turkart)
+eller `sjokartraster`.
+
+`KARTVERKET_URL` lämnas tom; då byggs URL:en av lagernamnet. Vill du
+sätta den explicit ser den ut så här — notera `{z2}`, som är
+nollutfylld tvåsiffrig zoom eftersom Kartverkets
+TileMatrix-identifierare är `08`, inte `8`:
+
+```
+https://cache.kartverket.no/v1/service?service=WMTS&request=GetTile
+  &version=1.0.0&layer=topo&style=default&tilematrixset=webmercator
+  &tilematrix={z2}&tilerow={y}&tilecol={x}&format=image/png
+```
 
 Felsökning av kartrutorna:
 

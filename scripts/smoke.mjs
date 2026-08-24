@@ -24,10 +24,15 @@ const prov = [
     kolla: (d) => Boolean(d.namn) || 'saknar namn' },
   { vag: '/kategorier',  typ: 'application/json', vad: 'kategorier',
     kolla: (d) => Array.isArray(d) && d.length > 0 || 'tom' },
+  // Kollar att endpointen svarar strukturerat, inte att upstream lyckas
+  // — den kan vara oåtkomlig från utvecklingsmiljön. Ett kodfel ger
+  // {fel: "Internt fel"} utan url, vilket fångas.
   { vag: '/tiles/capabilities', typ: 'application/json', vad: 'WMTS-diagnostik',
-    kolla: (d) => Boolean(d.nuvarande_mall) || 'saknar nuvarande_mall' },
+    kolla: (d) => Boolean(d.url) || `svarade ${JSON.stringify(d).slice(0, 90)}`,
+    notera: (d) => (d.status === 200 ? null : `upstream ${d.status}`) },
   { vag: '/tiles/capabilities?kalla=no', typ: 'application/json', vad: 'Kartverket-diagnostik',
-    kolla: (d) => Boolean(d.nuvarande_mall) || 'saknar nuvarande_mall' },
+    kolla: (d) => Boolean(d.url) || `svarade ${JSON.stringify(d).slice(0, 90)}`,
+    notera: (d) => (d.status === 200 ? null : `upstream ${d.status}`) },
   { vag: '/tiles/8/143/57.png', typ: 'image/png',   vad: 'kartruta' },
   { vag: '/tiles/16/1/1.png',   status: 400,        vad: 'zoom utanför gränsen' },
   { vag: '/poi/finns-inte',     status: 404,        vad: 'okänd POI ger JSON-404' },
@@ -48,9 +53,13 @@ for (const p of prov) {
       const kropp = (await res.text()).slice(0, 120);
       rad += `FEL: väntade ${p.typ}, fick ${typ} — ${kropp}`; fel++;
     } else if (p.kolla) {
-      const utfall = p.kolla(await res.json());
+      const data = await res.json();
+      const utfall = p.kolla(data);
       if (utfall !== true) { rad += `FEL: ${utfall}`; fel++; }
-      else rad += `ok (${res.status})`;
+      else {
+        const not = p.notera?.(data);
+        rad += `ok (${res.status})${not ? ` — ${not}` : ''}`;
+      }
     } else {
       rad += `ok (${res.status})`;
     }
