@@ -96,6 +96,24 @@ export async function hanteraTile(request, env, ctx, cors) {
     .replaceAll('{y}', y)
     .replaceAll('{token}', token);
 
+  // Halv inloggning är lätt att råka ut för: text-variabler i
+  // dashboarden raderas av nästa deploy medan secrets överlever, så
+  // ena halvan kan försvinna tyst. Säg det istället för att låta
+  // kartan bli blank.
+  const harId = Boolean(env.LANTMATERIET_CLIENT_ID);
+  const harHemlighet = Boolean(env.LANTMATERIET_CLIENT_SECRET);
+  if (harId !== harHemlighet && !env.LANTMATERIET_TOKEN) {
+    const saknas = harId
+      ? 'LANTMATERIET_CLIENT_SECRET'
+      : 'LANTMATERIET_CLIENT_ID';
+    return new Response(
+      `Bara halva inloggningen är satt — ${saknas} saknas. Ligger den ` +
+        'som Text i dashboarden raderas den av varje deploy; lägg in ' +
+        'den som Secret.',
+      { status: 503, headers: { ...cors, 'X-Upstream-Status': 'halv-inloggning' } }
+    );
+  }
+
   // Token i sökvägen är ett av Lantmäteriets mönster; annars går
   // inloggningen via Authorization-headern.
   const headers = mall.includes('{token}') ? {} : await authHeaders(env);
