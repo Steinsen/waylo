@@ -81,6 +81,14 @@ export async function hanteraTile(request, env, ctx, cors) {
   // Diagnostik: läser GetCapabilities och plockar ut de identifierare
   // som GetTile-anropen måste stämma med. Workern når Lantmäteriet
   // även när utvecklingsmiljön inte gör det.
+  // Diagnostik: hämtar ett rutnät från båda källorna och rapporterar
+  // status och storlek. Gör gränsen för "tom ruta" mätbar istället för
+  // gissad — svenska rutor över Norge är inte tomma utan innehåller en
+  // generaliserad bakgrund, så storleken måste läsas av.
+  if (url.pathname === '/tiles/prov') {
+    return await provaRutor(env, cors, url.searchParams);
+  }
+
   if (url.pathname === '/tiles/capabilities') {
     return await hamtaCapabilities(
       env,
@@ -212,6 +220,70 @@ export async function hanteraTile(request, env, ctx, cors) {
   );
 
   return svar;
+}
+
+async function provaRutor(env, cors, p) {
+  const z = Number(p.get('z') ?? 9);
+  const x0 = Number(p.get('x') ?? 0);
+  const y0 = Number(p.get('y') ?? 0);
+  const n = Math.min(Math.max(Number(p.get('n')) || 3, 1), 4);
+  const alla = mallar(env);
+
+  if (!Number.isInteger(z) || !Number.isInteger(x0) || !Number.isInteger(y0)) {
+    return Response.json({ fel: 'z, x och y måste vara heltal' }, { status: 400, headers: cors });
+  }
+
+  const rutor = [];
+  for (let dy = 0; dy < n; dy++) {
+    for (let dx = 0; dx < n; dx++) {
+      rutor.push({ x: x0 + dx, y: y0 + dy });
+    }
+  }
+
+  const resultat = await Promise.all(
+    rutor.map(async ({ x, y }) => {
+      const rad = { x, y };
+      for (const kod of ['se', 'no']) {
+        const upstream = alla[kod]
+          .replaceAll('{z2}', String(z).padStart(2, '0'))
+          .replaceAll('{z}', String(z))
+          .replaceAll('{x}', String(x))
+          .replaceAll('{y}', String(y))
+          .replaceAll('{token}', env.LANTMATERIET_TOKEN || '');
+        const headers =
+          kod === 'se' && !alla[kod].includes('{token}')
+            ? await authHeaders(env)
+            : {};
+        try {
+          const res = await fetch(upstream, { headers });
+          const bytes = res.ok ? (await res.arrayBuffer()).byteLength : 0;
+          rad[kod] = { status: res.status, bytes };
+        } catch (e) {
+          rad[kod] = { status: 0, fel: e.message };
+        }
+      }
+      return rad;
+    })
+  );
+
+  const storlekar = (kod) =>
+    resultat.map((r) => r[kod]?.bytes).filter((b) => b > 0).sort((a, b) => a - b);
+
+  const se = storlekar('se');
+  const no = storlekar('no');
+  const spann = (v) =>
+    v.length ? { minsta: v[0], median: v[Math.floor(v.length / 2)], storsta: v[v.length - 1] } : null;
+
+  return Response.json(
+    {
+      z,
+      nuvarande_grans: Number(env.TOM_RUTA_BYTES) || TOM_RUTA_BYTES,
+      se_storlekar: spann(se),
+      no_storlekar: spann(no),
+      rutor: resultat,
+    },
+    { headers: cors }
+  );
 }
 
 /** Plockar ut alla värden för en namnrymdad tagg. */

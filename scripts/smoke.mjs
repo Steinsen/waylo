@@ -33,6 +33,8 @@ const prov = [
   { vag: '/tiles/capabilities?kalla=no', typ: 'application/json', vad: 'Kartverket-diagnostik',
     kolla: (d) => Boolean(d.url) || `svarade ${JSON.stringify(d).slice(0, 90)}`,
     notera: (d) => (d.status === 200 ? null : `upstream ${d.status}`) },
+  { vag: '/tiles/prov?z=9&x=280&y=119&n=2', typ: 'application/json', vad: 'rutstorlekar',
+    kolla: (d) => Array.isArray(d.rutor) && d.rutor.length === 4 || 'fel antal rutor' },
   { vag: '/tiles/8/143/57.png', typ: 'image/png',   vad: 'kartruta' },
   { vag: '/tiles/16/1/1.png',   status: 400,        vad: 'zoom utanför gränsen' },
   { vag: '/poi/finns-inte',     status: 404,        vad: 'okänd POI ger JSON-404' },

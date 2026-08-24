@@ -88,9 +88,19 @@ Felsökning av kartrutorna:
 - `X-Tile-Kalla` visar vilket land rutan kom från, `X-Tile-Bytes` hur
   stor den var. `/tiles/no/...` tvingar norsk källa, `/tiles/se/...`
   svensk.
-- Vita rutor över Norge betyder att Lantmäteriets tomma rutor är större
-  än `TOM_RUTA_BYTES`. Mät med `curl -sI .../tiles/se/9/250/57.png`
-  över norskt område och höj gränsen över det värdet.
+- Vita rutor över Norge betyder att Lantmäteriets rutor utanför svensk
+  täckning är större än `TOM_RUTA_BYTES`. De är inte tomma — Lantmäteriet
+  ritar en generaliserad bakgrund — så gränsen måste mätas, inte gissas:
+
+  ```
+  /tiles/prov?z=9&x=280&y=119&n=3
+  ```
+
+  Rutnätet 280–282 × 119–121 vid zoom 9 spänner över gränsen: Narvik och
+  Bardu på norska sidan, Riksgränsen och lodget på den svenska. Svaret
+  ger storleken från båda källorna per ruta. Sätt `TOM_RUTA_BYTES` mellan
+  de svenska rutornas två grupper — bakgrundsrutorna är små, de med
+  riktig topografi stora.
 - `/tiles/capabilities?kalla=no` läser Kartverkets GetCapabilities.
 - `/tiles/capabilities` visar under `auth` om inloggningen lyckades och
   vilken headertyp som skickades, plus vilka `TileMatrixSet`, lager och
