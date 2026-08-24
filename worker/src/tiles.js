@@ -176,10 +176,18 @@ export async function hanteraTile(request, env, ctx, cors) {
       continue;
     }
 
+    // Rutnäten kan vara förskjutna mellan tjänsterna. Stämmer inte
+    // skalan går KARTVERKET_ZOOM_OFFSET att sätta till -1 eller 1.
+    // /tiles/capabilities?kalla=no visar under rutnat om nivåerna
+    // följer GoogleMapsCompatible eller inte.
+    const offset =
+      kod === 'no' ? Number(env.KARTVERKET_ZOOM_OFFSET) || 0 : 0;
+    const zn = String(Number(z) + offset);
+
     const upstreamUrl = mall
       // {z2} före {z}, annars äter den senare upp inledningen
-      .replaceAll('{z2}', String(z).padStart(2, '0'))
-      .replaceAll('{z}', z)
+      .replaceAll('{z2}', zn.padStart(2, '0'))
+      .replaceAll('{z}', zn)
       .replaceAll('{x}', x)
       .replaceAll('{y}', y)
       .replaceAll('{token}', env.LANTMATERIET_TOKEN || '');
@@ -300,6 +308,71 @@ async function provaRutor(env, cors, p) {
   );
 }
 
+/**
+ * Standardens GoogleMapsCompatible: världen i en 256px-ruta vid nivå 0,
+ * origo i övre vänstra hörnet av Web Mercator-utbredningen.
+ */
+const GMC_SKALA_0 = 559082264.0287178;
+const GMC_ORIGO = -20037508.342789;
+
+/**
+ * Plockar ut de första nivåerna ur en TileMatrixSet och jämför dem med
+ * GoogleMapsCompatible. Avviker de går inte Leaflets z/x/y rakt in.
+ */
+function rutnatsDefinition(xml, namn) {
+  // Klipp ut rätt TileMatrixSet ur dokumentet
+  const block = [...xml.matchAll(
+    /<TileMatrixSet>([\s\S]*?)<\/TileMatrixSet>/g
+  )].map((m) => m[1]).find((b) => new RegExp(
+    `<(?:\\w+:)?Identifier>\\s*${namn}\\s*</(?:\\w+:)?Identifier>`
+  ).test(b));
+
+  if (!block) return { fel: `hittade ingen TileMatrixSet med namn ${namn}` };
+
+  const nivaer = [...block.matchAll(/<TileMatrix>([\s\S]*?)<\/TileMatrix>/g)]
+    .map((m) => m[1])
+    .map((n) => {
+      const plocka = (tagg) => {
+        const t = n.match(new RegExp(`<(?:\\w+:)?${tagg}>([^<]*)</(?:\\w+:)?${tagg}>`));
+        return t ? t[1].trim() : null;
+      };
+      return {
+        id: plocka('Identifier'),
+        skala: Number(plocka('ScaleDenominator')),
+        origo: plocka('TopLeftCorner'),
+        bredd: Number(plocka('MatrixWidth')),
+        rutstorlek: Number(plocka('TileWidth')),
+      };
+    });
+
+  const avvikelser = [];
+  for (const n of nivaer.slice(0, 6)) {
+    const niva = Number(n.id);
+    const vantad = GMC_SKALA_0 / 2 ** niva;
+    if (Math.abs(n.skala - vantad) / vantad > 0.001) {
+      avvikelser.push(`nivå ${n.id}: skala ${n.skala}, väntade ${vantad.toFixed(2)}`);
+    }
+    if (n.bredd !== 2 ** niva) {
+      avvikelser.push(`nivå ${n.id}: bredd ${n.bredd}, väntade ${2 ** niva}`);
+    }
+    if (n.origo && !n.origo.startsWith(String(GMC_ORIGO).slice(0, 8))) {
+      avvikelser.push(`nivå ${n.id}: origo ${n.origo}, väntade ${GMC_ORIGO} ...`);
+    }
+    if (n.rutstorlek && n.rutstorlek !== 256) {
+      avvikelser.push(`nivå ${n.id}: rutstorlek ${n.rutstorlek}, väntade 256`);
+    }
+  }
+
+  return {
+    namn,
+    antal_nivaer: nivaer.length,
+    forsta_nivaerna: nivaer.slice(0, 4),
+    sista_nivan: nivaer[nivaer.length - 1] ?? null,
+    googlemapscompatible: avvikelser.length === 0,
+    avvikelser,
+  };
+}
+
 /** Plockar ut alla värden för en namnrymdad tagg. */
 function taggar(xml, namn) {
   const träffar = [...xml.matchAll(
@@ -340,6 +413,11 @@ async function hamtaCapabilities(env, cors, ra, kalla) {
   // ResourceURL-mallar är det RESTful mönstret, om tjänsten erbjuder ett
   const resursMallar = [...xml.matchAll(/template="([^"]+)"/g)].map((m) => m[1]);
 
+  // Rutnätets definition avgör om Leaflets z/x/y går rakt in. Skiljer
+  // sig ScaleDenominator eller TopLeftCorner från GoogleMapsCompatible
+  // hamnar rutorna i fel skala eller på fel plats.
+  const rutnat = rutnatsDefinition(xml, kalla === 'no' ? 'webmercator' : '3857');
+
   return Response.json(
     {
       version: VERSION,
@@ -352,6 +430,7 @@ async function hamtaCapabilities(env, cors, ra, kalla) {
       tilematrixset: taggar(xml, 'TileMatrixSet'),
       supported_crs: taggar(xml, 'SupportedCRS'),
       resource_url_mallar: resursMallar,
+      rutnat,
       nuvarande_mall: mallar(env)[kalla],
     },
     { headers: cors }

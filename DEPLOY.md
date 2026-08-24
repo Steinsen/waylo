@@ -109,7 +109,11 @@ Felsökning av kartrutorna:
   ger storleken från båda källorna per ruta. Sätt `TOM_RUTA_BYTES` mellan
   de svenska rutornas två grupper — bakgrundsrutorna är små, de med
   riktig topografi stora.
-- `/tiles/capabilities?kalla=no` läser Kartverkets GetCapabilities.
+- `/tiles/capabilities?kalla=no` läser Kartverkets GetCapabilities. Under
+  `rutnat` jämförs deras nivåer med GoogleMapsCompatible — står
+  `googlemapscompatible: false` ligger rutorna i fel skala eller på fel
+  plats, och `avvikelser` säger hur. Är nivånumreringen förskjuten
+  rättas det med `KARTVERKET_ZOOM_OFFSET` (-1 eller 1).
 - `/tiles/capabilities` visar under `auth` om inloggningen lyckades och
   vilken headertyp som skickades, plus vilka `TileMatrixSet`, lager och
   format tjänsten erbjuder — bredvid mallen vi använder. `?raw` ger XML.

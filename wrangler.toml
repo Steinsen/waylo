@@ -71,6 +71,12 @@ WMTS_URL = ""
 KARTVERKET_LAGER = "topo"
 KARTVERKET_URL = ""
 
+# Sitter Kartverkets rutor i fel skala är deras nivånumrering förskjuten
+# mot Leaflets. Sätt -1 eller 1. Kontrollera först under rutnat i
+# /tiles/capabilities?kalla=no — står googlemapscompatible: true ligger
+# felet någon annanstans och det här ska lämnas på 0.
+KARTVERKET_ZOOM_OFFSET = "0"
+
 # Lantmäteriet svarar 200 med en tom vit ruta utanför svensk täckning
 # istället för ett fel. Rutor mindre än så här räknas som tomma och
 # hämtas från Kartverket istället. Mät med X-Tile-Bytes om gränsen
