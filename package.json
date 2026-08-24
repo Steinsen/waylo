@@ -11,7 +11,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:seed": "wrangler d1 execute waylo --remote --file=schema/seed-arctic-lodge.sql",
     "db:seed:local": "wrangler d1 execute waylo --local --file=schema/seed-arctic-lodge.sql",
-    "console:sql": "./scripts/sql-for-console.py"
+    "console:sql": "./scripts/sql-for-console.py",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0"

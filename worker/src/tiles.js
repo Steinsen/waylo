@@ -223,7 +223,7 @@ async function hamtaCapabilities(env, cors, ra, kalla) {
   }
 
   // ResourceURL-mallar är det RESTful mönstret, om tjänsten erbjuder ett
-  const mallar = [...xml.matchAll(/template="([^"]+)"/g)].map((m) => m[1]);
+  const resursMallar = [...xml.matchAll(/template="([^"]+)"/g)].map((m) => m[1]);
 
   return Response.json(
     {
@@ -236,7 +236,7 @@ async function hamtaCapabilities(env, cors, ra, kalla) {
       format: taggar(xml, 'Format'),
       tilematrixset: taggar(xml, 'TileMatrixSet'),
       supported_crs: taggar(xml, 'SupportedCRS'),
-      resource_url_mallar: mallar,
+      resource_url_mallar: resursMallar,
       nuvarande_mall: mallar(env)[kalla],
     },
     { headers: cors }

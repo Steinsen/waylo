@@ -32,6 +32,7 @@ frontend/
   src/components/         Map.jsx, Chat.jsx
 scripts/
   sql-for-console.py      Genererar de kommentarsfria SQL-filerna
+  smoke.mjs               Kontrollerar att varje route svarar rätt
 ```
 
 ## Snabbstart
@@ -69,6 +70,13 @@ npm install
 cp .dev.vars.example .dev.vars      # lägg in din API-nyckel
 npm run db:migrate:local && npm run db:seed:local
 npm run dev                         # bygger frontend och startar workern
+```
+
+Kontrollera att allt svarar, mot en lokal worker eller den deployade:
+
+```bash
+npm run smoke
+node scripts/smoke.mjs https://waylo.<konto>.workers.dev
 ```
 
 Sajt och API ligger på samma origin, så ingen CORS-konfiguration behövs
