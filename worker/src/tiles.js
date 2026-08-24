@@ -14,6 +14,7 @@
  */
 
 import { authHeaders, authStatus } from './lantmateriet.js';
+import { kallordning, rutansMitt, iSverige } from './geo.js';
 import { VERSION } from './version.js';
 
 const CACHE_TTL = 86400; // 24h
@@ -99,7 +100,7 @@ export async function hanteraTile(request, env, ctx, cors) {
   }
 
   const match = url.pathname.match(
-    /^\/tiles\/(se|no\/)?(\d+)\/(\d+)\/(\d+)\.png$/
+    /^\/tiles\/(se\/|no\/)?(\d+)\/(\d+)\/(\d+)\.png$/
   );
   if (!match) return null;
   if (request.method !== 'GET') {
@@ -107,9 +108,12 @@ export async function hanteraTile(request, env, ctx, cors) {
   }
 
   const [, prefix, z, x, y] = match;
-  // Utan prefix: svensk ruta först, norsk som reserv där Lantmäteriet
-  // saknar täckning. Med prefix: bara det landet, för felsökning.
-  const land = prefix === 'no/' ? ['no'] : prefix === 'se' ? ['se'] : ['se', 'no'];
+  // Rutans position avgör källa. Den andra källan står kvar som reserv:
+  // Natural Earths gräns är några hundra meter oprecis just vid
+  // Riksgränsen, och där fångar innehållskontrollen längre ner felet.
+  // Med prefix tvingas ett land, för felsökning.
+  const land =
+    prefix === 'no/' ? ['no'] : prefix === 'se/' ? ['se'] : kallordning(z, x, y);
   if (Number(z) > MAX_ZOOM) {
     return new Response('Zoom out of range', { status: 400, headers: cors });
   }

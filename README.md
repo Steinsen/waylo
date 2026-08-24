@@ -20,7 +20,9 @@ worker/src/
   tools.js                search_poi_database / get_weather + web search
   poi.js                  D1-queries
   config.js               Instanskonfig, systemprompt, säsongslogik
-  tiles.js                Lantmäteriets WMTS med edge- och KV-cache
+  tiles.js                Kartrutor: Lantmäteriet och Kartverket
+  geo.js                  Avgör vilken karttjänst en ruta hör till
+  sverige.js              Förenklad Sverigepolygon (genererad)
 schema/
   migrations/
     0001_schema.sql       Körs av deploy-scriptet, en gång
@@ -32,6 +34,7 @@ frontend/
   src/components/         Map.jsx, Chat.jsx
 scripts/
   sql-for-console.py      Genererar de kommentarsfria SQL-filerna
+  generera-sverige.py     Bygger om sverige.js ur Natural Earth
   smoke.mjs               Kontrollerar att varje route svarar rätt
 ```
 
