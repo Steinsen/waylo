@@ -37,6 +37,29 @@ function standardWmts(lager) {
   return `${WMTS_BAS}/1.0.0/${lager}/default/3857/{z}/{y}/{x}.png`;
 }
 
+// Norska Kartverket — gratis och utan inloggning. Deras webmercator
+// är samma rutnät som Lantmäteriets 3857, så rutorna passar ihop.
+// Lager: topo, topograatone, toporaster (turkart), sjokartraster.
+const KARTVERKET_BAS = 'https://cache.kartverket.no/v1/service';
+
+function standardKartverket(lager) {
+  return (
+    `${KARTVERKET_BAS}?service=WMTS&request=GetTile&version=1.0.0` +
+    `&layer=${lager}&style=default&tilematrixset=webmercator` +
+    '&tilematrix={z}&tilerow={y}&tilecol={x}&format=image/png'
+  );
+}
+
+/** Mallarna för respektive land, efter konfiguration. */
+function mallar(env) {
+  return {
+    se: env.WMTS_URL || standardWmts(env.WMTS_LAGER || 'topowebb'),
+    no:
+      env.KARTVERKET_URL ||
+      standardKartverket(env.KARTVERKET_LAGER || 'topo'),
+  };
+}
+
 /**
  * Hanterar GET /tiles/{z}/{x}/{y}.png. Returnerar null om vägen inte
  * matchar, så routern kan gå vidare.
@@ -48,16 +71,26 @@ export async function hanteraTile(request, env, ctx, cors) {
   // som GetTile-anropen måste stämma med. Workern når Lantmäteriet
   // även när utvecklingsmiljön inte gör det.
   if (url.pathname === '/tiles/capabilities') {
-    return await hamtaCapabilities(env, cors, url.searchParams.has('raw'));
+    return await hamtaCapabilities(
+      env,
+      cors,
+      url.searchParams.has('raw'),
+      url.searchParams.get('kalla') === 'no' ? 'no' : 'se'
+    );
   }
 
-  const match = url.pathname.match(/^\/tiles\/(\d+)\/(\d+)\/(\d+)\.png$/);
+  const match = url.pathname.match(
+    /^\/tiles\/(se|no\/)?(\d+)\/(\d+)\/(\d+)\.png$/
+  );
   if (!match) return null;
   if (request.method !== 'GET') {
     return new Response('Method not allowed', { status: 405, headers: cors });
   }
 
-  const [, z, x, y] = match;
+  const [, prefix, z, x, y] = match;
+  // Utan prefix: svensk ruta först, norsk som reserv där Lantmäteriet
+  // saknar täckning. Med prefix: bara det landet, för felsökning.
+  const land = prefix === 'no/' ? ['no'] : prefix === 'se' ? ['se'] : ['se', 'no'];
   if (Number(z) > MAX_ZOOM) {
     return new Response('Zoom out of range', { status: 400, headers: cors });
   }
@@ -78,31 +111,12 @@ export async function hanteraTile(request, env, ctx, cors) {
     }
   }
 
-  // 3) Lantmäteriet
-  const mall =
-    env.WMTS_URL || standardWmts(env.WMTS_LAGER || 'topowebb');
-  const token = env.LANTMATERIET_TOKEN || '';
+  // 3) Upstream — svensk ruta först, norsk som reserv
+  const alla = mallar(env);
 
-  if (mall.includes('{token}') && !token) {
-    return new Response(
-      'Mallen har {token} men LANTMATERIET_TOKEN är inte satt.',
-      { status: 503, headers: { ...cors, 'X-Upstream-Status': 'ingen-token' } }
-    );
-  }
-
-  const lmUrl = mall
-    .replaceAll('{z}', z)
-    .replaceAll('{x}', x)
-    .replaceAll('{y}', y)
-    .replaceAll('{token}', token);
-
-  // Halv inloggning är lätt att råka ut för: text-variabler i
-  // dashboarden raderas av nästa deploy medan secrets överlever, så
-  // ena halvan kan försvinna tyst. Säg det istället för att låta
-  // kartan bli blank.
   const harId = Boolean(env.LANTMATERIET_CLIENT_ID);
   const harHemlighet = Boolean(env.LANTMATERIET_CLIENT_SECRET);
-  if (harId !== harHemlighet && !env.LANTMATERIET_TOKEN) {
+  if (land.includes('se') && harId !== harHemlighet && !env.LANTMATERIET_TOKEN) {
     const saknas = harId
       ? 'LANTMATERIET_CLIENT_SECRET'
       : 'LANTMATERIET_CLIENT_ID';
@@ -114,33 +128,55 @@ export async function hanteraTile(request, env, ctx, cors) {
     );
   }
 
-  // Token i sökvägen är ett av Lantmäteriets mönster; annars går
-  // inloggningen via Authorization-headern.
-  const headers = mall.includes('{token}') ? {} : await authHeaders(env);
+  let response = null;
+  let anvant = null;
+  const fel = [];
 
-  const response = await fetch(lmUrl, { headers });
-  if (!response.ok) {
-    // Svälj inte vad upstream sa — utan det går felet inte att felsöka.
-    const detalj = (await response.text().catch(() => '')).slice(0, 200);
-    console.error(
-      `Tile ${z}/${x}/${y}: upstream ${response.status} ${response.statusText} ${detalj}`
-    );
-    return new Response(
-      `Upstream svarade ${response.status}. ${detalj}`,
-      {
-        status: 502,
-        headers: { ...cors, 'X-Upstream-Status': String(response.status) },
-      }
-    );
+  for (const kod of land) {
+    const mall = alla[kod];
+    if (mall.includes('{token}') && !env.LANTMATERIET_TOKEN) {
+      fel.push(`${kod}: mallen har {token} men LANTMATERIET_TOKEN saknas`);
+      continue;
+    }
+
+    const upstreamUrl = mall
+      .replaceAll('{z}', z)
+      .replaceAll('{x}', x)
+      .replaceAll('{y}', y)
+      .replaceAll('{token}', env.LANTMATERIET_TOKEN || '');
+
+    // Kartverket är öppet; bara Lantmäteriet vill ha inloggning.
+    const headers =
+      kod === 'se' && !mall.includes('{token}') ? await authHeaders(env) : {};
+
+    const svar = await fetch(upstreamUrl, { headers });
+    if (svar.ok) {
+      response = svar;
+      anvant = kod;
+      break;
+    }
+    fel.push(`${kod}: ${svar.status}`);
+    // Töm kroppen så anslutningen kan återanvändas
+    await svar.text().catch(() => {});
+  }
+
+  if (!response) {
+    console.error(`Tile ${z}/${x}/${y} misslyckades — ${fel.join(', ')}`);
+    return new Response(`Ingen källa hade rutan. ${fel.join(', ')}`, {
+      status: 502,
+      headers: { ...cors, 'X-Upstream-Status': fel.join(', ') },
+    });
   }
 
   const buffer = await response.arrayBuffer();
-  const svar = tileSvar(buffer, cors, 'MISS');
+  const svar = tileSvar(buffer, cors, 'MISS', anvant);
 
   ctx.waitUntil(
     Promise.all([
       env.CACHE
-        ? env.CACHE.put(`tile:${z}:${x}:${y}`, buffer, { expirationTtl: CACHE_TTL })
+        ? env.CACHE.put(`tile:${land.join('')}:${z}:${x}:${y}`, buffer, {
+            expirationTtl: CACHE_TTL,
+          })
         : Promise.resolve(),
       cache.put(cacheKey, svar.clone()),
     ])
@@ -157,13 +193,19 @@ function taggar(xml, namn) {
   return [...new Set(träffar.map((m) => m[1].trim()).filter(Boolean))];
 }
 
-async function hamtaCapabilities(env, cors, ra) {
-  const capUrl =
-    (env.WMTS_CAPABILITIES_URL || WMTS_BAS) +
-    '?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0';
+async function hamtaCapabilities(env, cors, ra, kalla) {
+  const bas =
+    kalla === 'no'
+      ? env.KARTVERKET_CAPABILITIES_URL || KARTVERKET_BAS
+      : env.WMTS_CAPABILITIES_URL || WMTS_BAS;
 
-  const auth = await authStatus(env);
-  const res = await fetch(capUrl, { headers: await authHeaders(env) });
+  const capUrl = `${bas}?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0`;
+
+  // Kartverket är öppet — bara Lantmäteriet behöver inloggning.
+  const auth = kalla === 'no' ? { kalla: 'kartverket', oppen: true } : await authStatus(env);
+  const res = await fetch(capUrl, {
+    headers: kalla === 'no' ? {} : await authHeaders(env),
+  });
   const xml = await res.text();
 
   if (ra) {
@@ -195,20 +237,20 @@ async function hamtaCapabilities(env, cors, ra) {
       tilematrixset: taggar(xml, 'TileMatrixSet'),
       supported_crs: taggar(xml, 'SupportedCRS'),
       resource_url_mallar: mallar,
-      nuvarande_mall:
-        env.WMTS_URL || standardWmts(env.WMTS_LAGER || 'topowebb'),
+      nuvarande_mall: mallar(env)[kalla],
     },
     { headers: cors }
   );
 }
 
-function tileSvar(buffer, cors, kalla) {
+function tileSvar(buffer, cors, kalla, land) {
   return new Response(buffer, {
     headers: {
       ...cors,
       'Content-Type': 'image/png',
       'Cache-Control': `public, max-age=${CACHE_TTL}`,
       'X-Cache': kalla,
+      ...(land ? { 'X-Tile-Kalla': land } : {}),
     },
   });
 }

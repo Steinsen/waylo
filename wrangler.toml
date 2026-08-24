@@ -64,6 +64,13 @@ WMTS_LAGER = "topowebb"
 # annanstans — {z}/{x}/{y} och {token} ersätts per anrop.
 WMTS_URL = ""
 
+# Norska Kartverket täcker det Lantmäteriet inte gör. Gratis och utan
+# inloggning. Lager: topo, topograatone, toporaster (turkart),
+# sjokartraster. Riksgränsen ligger på gränsen, så norska fjällen syns
+# bara tack vare det här.
+KARTVERKET_LAGER = "topo"
+KARTVERKET_URL = ""
+
 # Inloggning mot Lantmäteriet. maps.lantmateriet.se svarar med en
 # nginx-401, alltså HTTP Basic — därför "basic". Tjänster bakom deras
 # API-gateway vill ha "oauth2", som växlar in uppgifterna mot en token

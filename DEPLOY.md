@@ -65,8 +65,17 @@ växlas uppgifterna in mot en tidsbegränsad token som cachas i KV. Har
 du redan en färdig token räcker `LANTMATERIET_TOKEN`; den har företräde
 och hoppar över inloggningen helt.
 
+Kartan hämtar svenska rutor från Lantmäteriet och faller tillbaka på
+norska Kartverket där Lantmäteriet saknar täckning — Riksgränsen ligger
+på gränsen, så norska fjällen syns bara tack vare det. Kartverket är
+gratis och kräver ingen inloggning. Lager styrs av `KARTVERKET_LAGER`:
+`topo`, `topograatone`, `toporaster` (turkart) eller `sjokartraster`.
+
 Felsökning av kartrutorna:
 
+- `X-Tile-Kalla` i svaret visar vilket land rutan kom från. `/tiles/no/8/143/57.png`
+  tvingar norsk källa, `/tiles/se/...` svensk.
+- `/tiles/capabilities?kalla=no` läser Kartverkets GetCapabilities.
 - `/tiles/capabilities` visar under `auth` om inloggningen lyckades och
   vilken headertyp som skickades, plus vilka `TileMatrixSet`, lager och
   format tjänsten erbjuder — bredvid mallen vi använder. `?raw` ger XML.
