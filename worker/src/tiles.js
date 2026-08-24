@@ -18,6 +18,11 @@ import { kallordning, rutansMitt, iSverige } from './geo.js';
 import { VERSION } from './version.js';
 
 const CACHE_TTL = 86400; // 24h
+
+// Cachade rutor lever ett dygn. Ändras routningen eller upstream-mallen
+// serveras gamla rutor tills dess — höj den här så byts nyckeln och
+// allt hämtas om direkt.
+const CACHE_VERSION = 2;
 // Deras TileMatrixSet 3857 går 0–15 enligt GetCapabilities.
 const MAX_ZOOM = 15;
 
@@ -120,7 +125,14 @@ export async function hanteraTile(request, env, ctx, cors) {
 
   // 1) Cloudflare edge-cache
   const cache = caches.default;
-  const cacheKey = new Request(url.toString(), request);
+  // Versionen måste ingå i nyckeln, annars överlever gamla rutor en
+  // ändrad routning i ett dygn. Landvalet ingår också, så en tvingad
+  // /tiles/no/-ruta inte skuggar den automatiskt valda.
+  const cacheKey = new Request(
+    `${url.origin}/__tiles/v${CACHE_VERSION}/${land.join('')}${url.pathname}`,
+    request
+  );
+  const kvNyckel = `tile:v${CACHE_VERSION}:${land.join('')}:${z}:${x}:${y}`;
   const edgeHit = await cache.match(cacheKey);
   if (edgeHit) return medHeaders(edgeHit, cors, 'EDGE');
 
@@ -215,9 +227,7 @@ export async function hanteraTile(request, env, ctx, cors) {
   ctx.waitUntil(
     Promise.all([
       env.CACHE
-        ? env.CACHE.put(`tile:${land.join('')}:${z}:${x}:${y}`, buffer, {
-            expirationTtl: CACHE_TTL,
-          })
+        ? env.CACHE.put(kvNyckel, buffer, { expirationTtl: CACHE_TTL })
         : Promise.resolve(),
       cache.put(cacheKey, svar.clone()),
     ])

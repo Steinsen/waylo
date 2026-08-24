@@ -83,8 +83,16 @@ https://cache.kartverket.no/v1/service?service=WMTS&request=GetTile
   &tilematrix={z2}&tilerow={y}&tilecol={x}&format=image/png
 ```
 
+Rutor cachas ett dygn i Cloudflares edge-cache och i KV. **Ändrar du
+routningen eller en upstream-mall serveras gamla rutor tills cachen
+går ut** — höj `CACHE_VERSION` i `worker/src/tiles.js` så byts nyckeln
+och allt hämtas om vid nästa deploy.
+
 Felsökning av kartrutorna:
 
+- `X-Cache` visar `MISS`, `EDGE` eller `KV`. Vita rutor som svarar
+  `EDGE` är gamla cachade rutor, inte ett routningsfel — höj
+  `CACHE_VERSION`.
 - `X-Tile-Kalla` visar vilket land rutan kom från, `X-Tile-Bytes` hur
   stor den var. `/tiles/no/...` tvingar norsk källa, `/tiles/se/...`
   svensk.
