@@ -38,10 +38,21 @@ export default function Map({ config, poier = [], markerade = [], synlig = true 
       scrollWheelZoom: true,
     });
 
-    L.tileLayer(`${config.tiles_url}/tiles/{z}/{x}/{y}.png`, {
-      attribution: '© Lantmäteriet CC BY · © Kartverket',
-      maxZoom: 15,
-      minZoom: 5,
+    // Två lager istället för ett. Workern gör rutor genomskinliga där
+    // källan saknar täckning, så browsern komponerar ihop dem: norskt
+    // underst, svenskt över. Gränsen behöver därmed ingen beslutslogik
+    // — där båda har data vinner det svenska, där bara en har data syns
+    // den, och där ingen har det syns kartans bakgrund.
+    const lager = { maxZoom: 15, minZoom: 5 };
+
+    L.tileLayer(`${config.tiles_url}/tiles/no/{z}/{x}/{y}.png`, {
+      ...lager,
+      attribution: '© Kartverket',
+    }).addTo(karta);
+
+    L.tileLayer(`${config.tiles_url}/tiles/se/{z}/{x}/{y}.png`, {
+      ...lager,
+      attribution: '© Lantmäteriet CC BY',
     }).addTo(karta);
 
     L.marker([config.center.lat, config.center.lng], {

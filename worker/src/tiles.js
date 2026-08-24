@@ -22,7 +22,18 @@ const CACHE_TTL = 86400; // 24h
 // Cachade rutor lever ett dygn. Ändras routningen eller upstream-mallen
 // serveras gamla rutor tills dess — höj den här så byts nyckeln och
 // allt hämtas om direkt.
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
+
+// 1x1 genomskinlig PNG. Leaflet skalar upp den till hela rutan, så en
+// källa som saknar täckning blir osynlig och lagret under syns igenom.
+// Det är så gränsen löses: browsern komponerar, workern väljer inte.
+const GENOMSKINLIG = Uint8Array.from(
+  atob(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAA' +
+      'AAYAAjCB0C8AAAAASUVORK5CYII='
+  ),
+  (c) => c.charCodeAt(0)
+);
 // Deras TileMatrixSet 3857 går 0–15 enligt GetCapabilities.
 const MAX_ZOOM = 15;
 
@@ -205,8 +216,13 @@ export async function hanteraTile(request, env, ctx, cors) {
 
     const data = await svar.arrayBuffer();
 
-    // Tom ruta: spara som sista utväg och fråga nästa källa
-    if (data.byteLength <= tomGrans && land.length > 1) {
+    // Bakgrundsruta utan verkligt innehåll.
+    if (data.byteLength <= tomGrans) {
+      // Lagerläge: bli genomskinlig så lagret under syns igenom.
+      if (land.length === 1) {
+        return tileSvar(GENOMSKINLIG, cors, 'TOM', `${kod}-genomskinlig`);
+      }
+      // Automatläge: spara som sista utväg och fråga nästa källa.
       fel.push(`${kod}: tom ruta (${data.byteLength} B)`);
       reserv ??= { data, kod };
       continue;
@@ -224,6 +240,10 @@ export async function hanteraTile(request, env, ctx, cors) {
 
   if (!buffer) {
     console.error(`Tile ${z}/${x}/${y} misslyckades — ${fel.join(', ')}`);
+    // Lagerläge: ett hål i ett lager ska inte bli ett hål i kartan.
+    if (land.length === 1) {
+      return tileSvar(GENOMSKINLIG, cors, 'TOM', `${land[0]}-fel`);
+    }
     return new Response(`Ingen källa hade rutan. ${fel.join(', ')}`, {
       status: 502,
       headers: { ...cors, 'X-Upstream-Status': fel.join(', ') },
