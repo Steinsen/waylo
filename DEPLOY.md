@@ -90,7 +90,8 @@ och allt hämtas om vid nästa deploy.
 
 Felsökning av kartrutorna:
 
-- `X-Cache` visar `MISS`, `EDGE` eller `KV`. Vita rutor som svarar
+- `X-Cache` visar `MISS`, `EDGE`, `KV`, `GEO` (genomskinlig utan
+  upstream-anrop) eller `TOM` (upstream saknade innehåll). Vita rutor som svarar
   `EDGE` är gamla cachade rutor, inte ett routningsfel — höj
   `CACHE_VERSION`.
 - `X-Tile-Kalla` visar vilket land rutan kom från, `X-Tile-Bytes` hur

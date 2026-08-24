@@ -14,7 +14,7 @@
  */
 
 import { authHeaders, authStatus } from './lantmateriet.js';
-import { kallordning, rutansMitt, iSverige } from './geo.js';
+import { kallordning, motSverige } from './geo.js';
 import { VERSION } from './version.js';
 
 const CACHE_TTL = 86400; // 24h
@@ -22,7 +22,7 @@ const CACHE_TTL = 86400; // 24h
 // Cachade rutor lever ett dygn. Ändras routningen eller upstream-mallen
 // serveras gamla rutor tills dess — höj den här så byts nyckeln och
 // allt hämtas om direkt.
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 
 // 1x1 genomskinlig PNG. Leaflet skalar upp den till hela rutan, så en
 // källa som saknar täckning blir osynlig och lagret under syns igenom.
@@ -172,6 +172,19 @@ export async function hanteraTile(request, env, ctx, cors) {
         'den som Secret.',
       { status: 503, headers: { ...cors, 'X-Upstream-Status': 'halv-inloggning' } }
     );
+  }
+
+  // Lagerläge: gör lagret genomskinligt utan att ens fråga upstream när
+  // rutan ligger utanför källans land. Avgörs av geografin, inte av
+  // svarets storlek — det senare krävde en gräns som måste gissas.
+  if (land.length === 1) {
+    const tackning = motSverige(z, x, y);
+    const utanfor =
+      (land[0] === 'se' && tackning === 'inte') ||
+      (land[0] === 'no' && tackning === 'helt');
+    if (utanfor) {
+      return tileSvar(GENOMSKINLIG, cors, 'GEO', `${land[0]}-utanfor`);
+    }
   }
 
   let buffer = null;
