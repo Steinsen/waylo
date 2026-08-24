@@ -85,8 +85,12 @@ https://cache.kartverket.no/v1/service?service=WMTS&request=GetTile
 
 Felsökning av kartrutorna:
 
-- `X-Tile-Kalla` i svaret visar vilket land rutan kom från. `/tiles/no/8/143/57.png`
-  tvingar norsk källa, `/tiles/se/...` svensk.
+- `X-Tile-Kalla` visar vilket land rutan kom från, `X-Tile-Bytes` hur
+  stor den var. `/tiles/no/...` tvingar norsk källa, `/tiles/se/...`
+  svensk.
+- Vita rutor över Norge betyder att Lantmäteriets tomma rutor är större
+  än `TOM_RUTA_BYTES`. Mät med `curl -sI .../tiles/se/9/250/57.png`
+  över norskt område och höj gränsen över det värdet.
 - `/tiles/capabilities?kalla=no` läser Kartverkets GetCapabilities.
 - `/tiles/capabilities` visar under `auth` om inloggningen lyckades och
   vilken headertyp som skickades, plus vilka `TileMatrixSet`, lager och

@@ -20,6 +20,13 @@ const CACHE_TTL = 86400; // 24h
 // Deras TileMatrixSet 3857 går 0–15 enligt GetCapabilities.
 const MAX_ZOOM = 15;
 
+// Lantmäteriet svarar 200 med en tom vit ruta utanför svensk täckning
+// istället för ett fel, så fallbacken utlöses aldrig av statuskoden.
+// En enfärgad 256x256-PNG komprimeras till några hundra byte medan en
+// riktig topografisk ruta är tiotusentals — gapet är stort nog att
+// skilja på dem. Justeras med TOM_RUTA_BYTES.
+const TOM_RUTA_BYTES = 1500;
+
 // Lantmäteriets öppna WMTS, avgiftsfri och utan token.
 //
 // Sätt WMTS_URL i wrangler.toml för att peka någon annanstans — t.ex.
@@ -132,9 +139,11 @@ export async function hanteraTile(request, env, ctx, cors) {
     );
   }
 
-  let response = null;
+  let buffer = null;
   let anvant = null;
+  let reserv = null;          // tom ruta att falla tillbaka på i värsta fall
   const fel = [];
+  const tomGrans = Number(env.TOM_RUTA_BYTES) || TOM_RUTA_BYTES;
 
   for (const kod of land) {
     const mall = alla[kod];
@@ -156,17 +165,32 @@ export async function hanteraTile(request, env, ctx, cors) {
       kod === 'se' && !mall.includes('{token}') ? await authHeaders(env) : {};
 
     const svar = await fetch(upstreamUrl, { headers });
-    if (svar.ok) {
-      response = svar;
-      anvant = kod;
-      break;
+    if (!svar.ok) {
+      fel.push(`${kod}: ${svar.status}`);
+      await svar.text().catch(() => {});
+      continue;
     }
-    fel.push(`${kod}: ${svar.status}`);
-    // Töm kroppen så anslutningen kan återanvändas
-    await svar.text().catch(() => {});
+
+    const data = await svar.arrayBuffer();
+
+    // Tom ruta: spara som sista utväg och fråga nästa källa
+    if (data.byteLength <= tomGrans && land.length > 1) {
+      fel.push(`${kod}: tom ruta (${data.byteLength} B)`);
+      reserv ??= { data, kod };
+      continue;
+    }
+
+    buffer = data;
+    anvant = kod;
+    break;
   }
 
-  if (!response) {
+  if (!buffer && reserv) {
+    buffer = reserv.data;
+    anvant = `${reserv.kod}-tom`;
+  }
+
+  if (!buffer) {
     console.error(`Tile ${z}/${x}/${y} misslyckades — ${fel.join(', ')}`);
     return new Response(`Ingen källa hade rutan. ${fel.join(', ')}`, {
       status: 502,
@@ -174,7 +198,6 @@ export async function hanteraTile(request, env, ctx, cors) {
     });
   }
 
-  const buffer = await response.arrayBuffer();
   const svar = tileSvar(buffer, cors, 'MISS', anvant);
 
   ctx.waitUntil(
@@ -256,6 +279,7 @@ function tileSvar(buffer, cors, kalla, land) {
       'Content-Type': 'image/png',
       'Cache-Control': `public, max-age=${CACHE_TTL}`,
       'X-Cache': kalla,
+      'X-Tile-Bytes': String(buffer.byteLength ?? ''),
       ...(land ? { 'X-Tile-Kalla': land } : {}),
     },
   });

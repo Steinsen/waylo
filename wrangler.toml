@@ -71,6 +71,12 @@ WMTS_URL = ""
 KARTVERKET_LAGER = "topo"
 KARTVERKET_URL = ""
 
+# Lantmäteriet svarar 200 med en tom vit ruta utanför svensk täckning
+# istället för ett fel. Rutor mindre än så här räknas som tomma och
+# hämtas från Kartverket istället. Mät med X-Tile-Bytes om gränsen
+# behöver justeras.
+TOM_RUTA_BYTES = "1500"
+
 # Inloggning mot Lantmäteriet. maps.lantmateriet.se svarar med en
 # nginx-401, alltså HTTP Basic — därför "basic". Tjänster bakom deras
 # API-gateway vill ha "oauth2", som växlar in uppgifterna mot en token
