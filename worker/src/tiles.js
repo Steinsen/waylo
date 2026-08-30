@@ -22,7 +22,7 @@ const CACHE_TTL = 86400; // 24h
 // Cachade rutor lever ett dygn. Ändras routningen eller upstream-mallen
 // serveras gamla rutor tills dess — höj den här så byts nyckeln och
 // allt hämtas om direkt.
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 
 // 1x1 genomskinlig PNG. Leaflet skalar upp den till hela rutan, så en
 // källa som saknar täckning blir osynlig och lagret under syns igenom.
@@ -229,13 +229,15 @@ export async function hanteraTile(request, env, ctx, cors) {
 
     const data = await svar.arrayBuffer();
 
-    // Bakgrundsruta utan verkligt innehåll.
-    if (data.byteLength <= tomGrans) {
-      // Lagerläge: bli genomskinlig så lagret under syns igenom.
-      if (land.length === 1) {
-        return tileSvar(GENOMSKINLIG, cors, 'TOM', `${kod}-genomskinlig`);
-      }
-      // Automatläge: spara som sista utväg och fråga nästa källa.
+    // Liten ruta: i automatläge en trolig bakgrundsruta, så spara den
+    // som sista utväg och fråga nästa källa.
+    //
+    // I lagerläge görs INGEN sådan bedömning. Geografin avgör redan
+    // täckningen, och storleken ljuger åt andra hållet: en enfärgad
+    // ruta över is, glaciär eller stor sjö komprimeras lika hårt som en
+    // bakgrundsruta. Att kasta den ger ett vitt hål mitt i ett område
+    // källan faktiskt täcker.
+    if (data.byteLength <= tomGrans && land.length > 1) {
       fel.push(`${kod}: tom ruta (${data.byteLength} B)`);
       reserv ??= { data, kod };
       continue;
