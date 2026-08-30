@@ -9,11 +9,12 @@
 
 import { SVERIGE } from './sverige.js';
 
-// Natural Earths gräns är några hundra meter oprecis — vid Riksgränsen
-// hamnar stationen på norska sidan. Marginalen gör att ett lager hellre
-// stannar kvar än försvinner nära gränsen. Kostar en onödig hämtning i
-// utbyte, aldrig en tom ruta.
-const MARGINAL_KM = 2;
+// Polygonen kommer från OSM och ligger inom några meter från
+// riksgränsen, så marginalen behöver bara täcka avrundningen till fem
+// decimaler och rutgränsernas kvantisering. Den gör att ett lager
+// hellre stannar kvar än försvinner nära gränsen — kostar en onödig
+// hämtning i utbyte, aldrig en tom ruta.
+const MARGINAL_KM = 0.3;
 
 /** Mittpunkten för en Web Mercator-ruta, som [lon, lat]. */
 export function rutansMitt(z, x, y) {

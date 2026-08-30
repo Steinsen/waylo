@@ -22,7 +22,7 @@ const CACHE_TTL = 86400; // 24h
 // Cachade rutor lever ett dygn. Ändras routningen eller upstream-mallen
 // serveras gamla rutor tills dess — höj den här så byts nyckeln och
 // allt hämtas om direkt.
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 
 // 1x1 genomskinlig PNG. Leaflet skalar upp den till hela rutan, så en
 // källa som saknar täckning blir osynlig och lagret under syns igenom.

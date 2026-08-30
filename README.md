@@ -22,19 +22,22 @@ worker/src/
   config.js               Instanskonfig, systemprompt, säsongslogik
   tiles.js                Kartrutor: Lantmäteriet och Kartverket
   geo.js                  Avgör vilken karttjänst en ruta hör till
-  sverige.js              Förenklad Sverigepolygon (genererad)
+  sverige.js              Sverigepolygon från OSM (genererad)
 schema/
   migrations/
     0001_schema.sql       Körs av deploy-scriptet, en gång
   seed-arctic-lodge.sql   Instans + POI:er för Arctic Lodge
   console/                Samma SQL utan kommentarer, för D1-konsolen
+data/
+  sweden-osm.geojson      Sveriges gräns, OSM-relation 52822
 frontend/
   src/App.jsx             Karta + chatt, flikar på mobil
   src/widget.jsx          Inbäddningsbar widget (dist/widget.js)
   src/components/         Map.jsx, Chat.jsx
 scripts/
   sql-for-console.py      Genererar de kommentarsfria SQL-filerna
-  generera-sverige.py     Bygger om sverige.js ur Natural Earth
+  generera-sverige.py     Bygger om sverige.js ur en gränskälla
+  osm-till-geojson.py     Syr ihop Overpass-fragment till ringar
   smoke.mjs               Kontrollerar att varje route svarar rätt
 ```
 

@@ -65,12 +65,44 @@ växlas uppgifterna in mot en tidsbegränsad token som cachas i KV. Har
 du redan en färdig token räcker `LANTMATERIET_TOKEN`; den har företräde
 och hoppar över inloggningen helt.
 
-Kartan hämtar svenska rutor från Lantmäteriet och faller tillbaka på
-norska Kartverket där Lantmäteriet saknar täckning — Riksgränsen ligger
-på gränsen, så norska fjällen syns bara tack vare det. Kartverket är
-gratis och kräver ingen inloggning — inget behöver sättas. Lager styrs
-av `KARTVERKET_LAGER`: `topo`, `topograatone`, `toporaster` (turkart)
-eller `sjokartraster`.
+Kartan ritar **två lager ovanpå varandra**: `/tiles/no/...` underst och
+`/tiles/se/...` över. Ligger rutan utanför källans land svarar workern
+med en genomskinlig ruta — utan att ens fråga upstream — så lagret
+under syns igenom. Browsern komponerar alltså ihop dem, och gränsen
+behöver ingen beslutslogik: där båda har data vinner det svenska, där
+bara en har det syns den, där ingen har det syns kartans bakgrund.
+
+Riksgränsen ligger på gränsen, så norska fjällen syns bara tack vare
+det. Kartverket är gratis och kräver ingen inloggning — inget behöver
+sättas. Lager styrs av `KARTVERKET_LAGER`: `topo`, `topograatone`,
+`toporaster` (turkart) eller `sjokartraster`.
+
+`/tiles/{z}/{x}/{y}.png` utan landprefix finns kvar och väljer källa
+själv utifrån rutans position, för den som vill ha ett enda lager.
+
+### Gränspolygonen
+
+Vilket land en ruta hör till avgörs av `worker/src/sverige.js`, en
+förenklad Sverigepolygon från **OSM-relation 52822**. Den ligger inom
+4 meter från riksgränsen i gränsområdet, mätt mot originalgeometrin.
+Marginalen är 300 meter, så ett lager hellre stannar kvar än försvinner
+nära gränsen.
+
+`data/sweden-osm.geojson` är den sammansydda källan. Hela kedjan är
+reproducerbar:
+
+```bash
+curl -G https://overpass-api.de/api/interpreter \
+  --data-urlencode 'data=[out:json];rel(52822);out geom;' > sverige.json
+python3 scripts/osm-till-geojson.py sverige.json data/sweden-osm.geojson
+TOLERANS=0.0001 python3 scripts/generera-sverige.py data/sweden-osm.geojson
+```
+
+Overpass returnerar relationens vägar som osorterade fragment;
+`osm-till-geojson.py` kedjar ihop dem till slutna ringar. Utan
+filsökväg faller generatorn tillbaka på Natural Earth 10m, som är
+några hundra meter fel vid Riksgränsen — bra nog för routning på
+rutnivå, men inte för en synlig gränslinje.
 
 `KARTVERKET_URL` lämnas tom; då byggs URL:en av lagernamnet. Vill du
 sätta den explicit ser den ut så här — notera `{z2}`, som är
@@ -97,6 +129,10 @@ Felsökning av kartrutorna:
 - `X-Tile-Kalla` visar vilket land rutan kom från, `X-Tile-Bytes` hur
   stor den var. `/tiles/no/...` tvingar norsk källa, `/tiles/se/...`
   svensk.
+- I lagerläge avgör geografin ensam om en ruta blir genomskinlig.
+  `TOM_RUTA_BYTES` gäller bara automatläget — en enfärgad ruta över is
+  eller stor sjö komprimeras lika hårt som en tom bakgrund, så
+  storleken kan inte skilja dem åt.
 - Vita rutor över Norge betyder att Lantmäteriets rutor utanför svensk
   täckning är större än `TOM_RUTA_BYTES`. De är inte tomma — Lantmäteriet
   ritar en generaliserad bakgrund — så gränsen måste mätas, inte gissas:

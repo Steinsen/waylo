@@ -21,7 +21,7 @@ import json, math, os, sys, urllib.request
 
 
 def rdp(punkter, tol):
-    """Douglas-Peucker."""
+    """Douglas-Peucker, iterativ — rekursion tar slut på 14 000 punkter."""
     if len(punkter) < 3:
         return punkter
     def avstand(p, a, b):
@@ -31,14 +31,23 @@ def rdp(punkter, tol):
             return math.hypot(x - x1, y - y1)
         t = max(0, min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)))
         return math.hypot(x - (x1 + t * dx), y - (y1 + t * dy))
-    langst, idx = 0.0, 0
-    for i in range(1, len(punkter) - 1):
-        d = avstand(punkter[i], punkter[0], punkter[-1])
-        if d > langst:
-            langst, idx = d, i
-    if langst <= tol:
-        return [punkter[0], punkter[-1]]
-    return rdp(punkter[:idx + 1], tol)[:-1] + rdp(punkter[idx:], tol)
+    behall = [False] * len(punkter)
+    behall[0] = behall[-1] = True
+    stack = [(0, len(punkter) - 1)]
+    while stack:
+        a, b = stack.pop()
+        if b <= a + 1:
+            continue
+        langst, idx = 0.0, a
+        for i in range(a + 1, b):
+            d = avstand(punkter[i], punkter[a], punkter[b])
+            if d > langst:
+                langst, idx = d, i
+        if langst > tol:
+            behall[idx] = True
+            stack.append((a, idx))
+            stack.append((idx, b))
+    return [p for p, k in zip(punkter, behall) if k]
 
 
 def area(ring):
@@ -48,14 +57,27 @@ def area(ring):
     return abs(s) / 2
 
 
-def i_polygon(pt, ringar):
+def bboxar(ringar):
+    ut = []
+    for r in ringar:
+        xs = [p[0] for p in r]; ys = [p[1] for p in r]
+        ut.append((min(xs), min(ys), max(xs), max(ys)))
+    return ut
+
+
+def i_polygon(pt, ringar, bb=None):
+    """Strålmetoden. bb hoppar över ringar som inte kan innehålla punkten."""
     x, y = pt
     inne = False
-    for ring in ringar:
+    for n, ring in enumerate(ringar):
+        if bb is not None:
+            x0, y0, x1, y1 = bb[n]
+            if x < x0 or x > x1 or y < y0 or y > y1:
+                continue
         for i in range(len(ring) - 1):
-            x1, y1 = ring[i]; x2, y2 = ring[i + 1]
-            if (y1 > y) != (y2 > y):
-                if x < x1 + (y - y1) / (y2 - y1) * (x2 - x1):
+            ax, ay = ring[i]; bx, by = ring[i + 1]
+            if (ay > y) != (by > y):
+                if x < ax + (y - ay) / (by - ay) * (bx - ax):
                     inne = not inne
     return inne
 
@@ -99,15 +121,23 @@ TOLERANS = float(os.environ.get("TOLERANS", "0.002"))
 ringar = [[[round(x, 5), round(y, 5)] for x, y in rdp(r, TOLERANS)] for r in stora]
 
 # Kontrollera att avrundningen inte förstörde något
+# Rutnät över gränsområdet kring Riksgränsen. Steget är avvägt mot
+# kostnaden: kontrollen är O(punkter x noder), och en högupplöst
+# OSM-polygon har tiotusentals noder.
 lat0, lat1, lon0, lon1 = 68.20, 68.75, 17.40, 19.20
+STEG_LAT, STEG_LON = 0.01, 0.02
 pkt = []
 lat = lat0
 while lat <= lat1:
     lon = lon0
     while lon <= lon1:
-        pkt.append((lon, lat)); lon += 0.005
-    lat += 0.002
-fel = sum(1 for p in pkt if i_polygon(p, alla) != i_polygon(p, ringar))
+        pkt.append((lon, lat)); lon += STEG_LON
+    lat += STEG_LAT
+bb_alla, bb_ny = bboxar(alla), bboxar(ringar)
+fel = sum(
+    1 for p in pkt
+    if i_polygon(p, alla, bb_alla) != i_polygon(p, ringar, bb_ny)
+)
 print(f"efter avrundning: {sum(len(r) for r in ringar)} punkter, {fel} felklassade av {len(pkt)}")
 
 # Kompakt format: [lon,lat,lon,lat,...] per ring sparar all JSON-overhead
