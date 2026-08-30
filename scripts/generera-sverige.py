@@ -17,7 +17,7 @@ Natural Earths gräns är själv några hundra meter oprecis — vid
 Riksgränsen hamnar stationen på norska sidan. Det fångas av
 innehållskontrollen i tiles.js, inte här.
 """
-import json, math, os, urllib.request
+import json, math, os, sys, urllib.request
 
 
 def rdp(punkter, tol):
@@ -63,14 +63,40 @@ def i_polygon(pt, ringar):
 KALLA = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector"
          "/master/geojson/ne_10m_admin_0_countries.geojson")
 
-print("hämtar Natural Earth ...")
-with urllib.request.urlopen(KALLA) as r:
-    d = json.loads(r.read())
-g = next(f for f in d['features'] if f['properties'].get('NAME') == 'Sweden')['geometry']
+# Med en filsökväg som argument används den i stället för Natural Earth.
+# Filen ska vara GeoJSON med Sveriges gräns — antingen en FeatureCollection
+# där ett feature heter Sweden, eller en enda Feature/geometri.
+if len(sys.argv) > 1:
+    print(f"läser {sys.argv[1]} ...")
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+else:
+    print("hämtar Natural Earth ...")
+    with urllib.request.urlopen(KALLA) as r:
+        d = json.loads(r.read())
+def hitta_geometri(doc):
+    """Sveriges geometri, oavsett hur källfilen är strukturerad."""
+    if doc.get('type') == 'FeatureCollection':
+        träffar = [
+            f for f in doc['features']
+            if 'sweden' in json.dumps(f.get('properties', {})).lower()
+            or 'sverige' in json.dumps(f.get('properties', {})).lower()
+        ]
+        if not träffar and len(doc['features']) == 1:
+            träffar = doc['features']          # enda featuret, anta Sverige
+        if not träffar:
+            sys.exit('hittade inget feature för Sverige i filen')
+        return träffar[0]['geometry']
+    if doc.get('type') == 'Feature':
+        return doc['geometry']
+    return doc                                  # naken geometri
+
+
+g = hitta_geometri(d)
 alla = g['coordinates'] if g['type'] == 'Polygon' else [r for poly in g['coordinates'] for r in poly]
 stora = [r for r in sorted(alla, key=area, reverse=True) if area(r) > 0.001]
 
-ringar = [[[round(x, 4), round(y, 4)] for x, y in rdp(r, 0.002)] for r in stora]
+TOLERANS = float(os.environ.get("TOLERANS", "0.002"))
+ringar = [[[round(x, 5), round(y, 5)] for x, y in rdp(r, TOLERANS)] for r in stora]
 
 # Kontrollera att avrundningen inte förstörde något
 lat0, lat1, lon0, lon1 = 68.20, 68.75, 17.40, 19.20
